@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="DIAMOND">
+  <meta name="apple-mobile-web-app-title" content="DIAMOND AI">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="theme-color" content="#1e1e1e">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Десктопный блокер (для мобильной версии) -->
   <div class="desktop-blocker" id="desktopBlocker">
     <div class="blocker-content">
       <i class="fas fa-mobile-alt"></i>
@@ -27,6 +28,7 @@
     </div>
   </div>
 
+  <!-- Основное приложение -->
   <div class="app" id="app">
     <!-- Загрузочный экран -->
     <div class="welcome-screen" id="welcomeScreen">
@@ -53,7 +55,7 @@
 
     <!-- Основной интерфейс чата -->
     <div class="main-ui" id="mainUI" style="display: none;">
-      <!-- Шапка с тремя колонками для идеального центрирования -->
+      <!-- Шапка с тремя колонками для центрирования -->
       <header class="mobile-header compact">
         <div class="header-left">
           <button class="burger-btn" id="burgerBtn">
@@ -67,9 +69,10 @@
             <span>DIAMOND AI</span>
           </div>
         </div>
-        <div class="header-right"></div> <!-- пустой блок для симметрии -->
+        <div class="header-right"></div>
       </header>
 
+      <!-- Оверлей и сайдбар -->
       <div class="sidebar-overlay" id="sidebarOverlay"></div>
       <aside class="sidebar compact" id="sidebar">
         <div class="sidebar-header">
@@ -89,6 +92,7 @@
         </div>
       </aside>
 
+      <!-- Область чата -->
       <main class="chat-area">
         <div class="messages-container" id="messagesContainer"></div>
         <div class="input-area">
@@ -124,6 +128,7 @@
       </div>
     </div>
 
+    <!-- Контейнер тостов -->
     <div id="toastContainer" class="toast-container"></div>
   </div>
 
