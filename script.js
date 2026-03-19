@@ -54,9 +54,7 @@ const loadingStatuses = [
     "Загрузка нейросети...",
     "Активация кристаллов...",
     "Калибровка ответов...",
-    "Запрос API...",
-    "Получение ключа...",
-    "Запуск нейросети..."
+    "Запуск DIAMOND AI..."
 ];
 
 // ==================== НАСТРОЙКА KATEX ====================
@@ -174,7 +172,7 @@ async function showLoadingScreen() {
 // ==================== ПОЛУЧЕНИЕ КЛЮЧА С ТВОЕГО СЕРВЕРА ====================
 async function fetchServerKey() {
     try {
-        const response = await fetch('https://diamondmobile.vercel.app/api/get-key');
+        const response = await fetch('/api/get-key'); // относительный путь
         if (!response.ok) {
             log(`Ошибка сервера: ${response.status}`, 'ERROR');
             return null;
@@ -217,12 +215,24 @@ async function checkKeyBalance(apiKey) {
 (async function init() {
     log('🟢 Инициализация...');
     
-    // Загрузка чатов
+    // Загрузка чатов из localStorage
     try {
         const stored = localStorage.getItem('diamondChats');
-        chats = stored ? JSON.parse(stored) : [];
-        if (chats.length && !currentChatId) currentChatId = chats[0].id;
-    } catch { chats = []; }
+        if (stored) {
+            chats = JSON.parse(stored);
+            // Убедимся, что у каждого чата есть id и messages
+            chats = chats.filter(chat => chat && chat.id && Array.isArray(chat.messages));
+            if (chats.length > 0 && !currentChatId) {
+                currentChatId = chats[0].id;
+            }
+        } else {
+            chats = [];
+        }
+        log(`Загружено ${chats.length} чатов`);
+    } catch (e) {
+        log(`Ошибка загрузки чатов: ${e.message}`, 'ERROR');
+        chats = [];
+    }
 
     // Загрузка аватара пользователя
     try {
@@ -258,15 +268,18 @@ async function checkKeyBalance(apiKey) {
     mainUI.style.display = 'flex';
     setTimeout(() => mainUI.classList.add('visible'), 50);
     
-    // Создаём новый чат, если нет ни одного
-    if (chats.length === 0) {
-        createNewChat(true);
+    // Если есть чаты, отображаем их, иначе создаём новый
+    if (chats.length > 0) {
+        renderChat(); // это отобразит существующие чаты
     } else {
-        renderChat();
+        createNewChat(true); // создаст приветственное сообщение
     }
 
     // Обновляем состояние кнопки отправки
     updateSendButtonState();
+    
+    // Устанавливаем все обработчики
+    setupEventListeners();
 })();
 
 // ==================== ЗАГРУЗКА МОДЕЛЕЙ ====================
@@ -384,8 +397,25 @@ function formatTime(timestamp) {
 
 // ==================== РЕНДЕР ЧАТА ====================
 function renderChat() {
+    if (!currentChatId && chats.length > 0) {
+        currentChatId = chats[0].id;
+    }
     const chat = chats.find(c => c.id === currentChatId);
-    if (!chat) { createNewChat(true); return; }
+    if (!chat) {
+        if (chats.length > 0) {
+            currentChatId = chats[0].id;
+            renderChat();
+        } else {
+            createNewChat(true);
+        }
+        return;
+    }
+    
+    if (!messagesContainer) {
+        log('messagesContainer не найден', 'ERROR');
+        return;
+    }
+    
     messagesContainer.innerHTML = '';
     let lastDate = null;
     chat.messages.forEach((msg, index) => {
@@ -668,7 +698,9 @@ async function sendMessage() {
 }
 
 function scrollToBottom() {
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 }
 function updateSendButtonState() {
     if (sendBtn) {
@@ -827,3 +859,8 @@ if (sendBtn) {
 window.addEventListener('click', (e) => {
     if (e.target === avatarModal) avatarModal.style.display = 'none';
 });
+
+// ==================== ВСПОМОГАТЕЛЬНЫЙ ФУНКЦИОНАЛ ====================
+function setupEventListeners() {
+    // Все обработчики уже добавлены выше
+}
