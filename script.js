@@ -222,13 +222,11 @@ async function checkKeyBalance(apiKey) {
             chats = JSON.parse(stored);
             // Убедимся, что у каждого чата есть id и messages
             chats = chats.filter(chat => chat && chat.id && Array.isArray(chat.messages));
-            if (chats.length > 0 && !currentChatId) {
-                currentChatId = chats[0].id;
-            }
+            log(`Загружено ${chats.length} чатов`);
         } else {
             chats = [];
+            log('Нет сохранённых чатов');
         }
-        log(`Загружено ${chats.length} чатов`);
     } catch (e) {
         log(`Ошибка загрузки чатов: ${e.message}`, 'ERROR');
         chats = [];
@@ -268,11 +266,16 @@ async function checkKeyBalance(apiKey) {
     mainUI.style.display = 'flex';
     setTimeout(() => mainUI.classList.add('visible'), 50);
     
-    // Если есть чаты, отображаем их, иначе создаём новый
+    // Если есть чаты, устанавливаем текущий и рендерим их
     if (chats.length > 0) {
-        renderChat(); // это отобразит существующие чаты
+        // Если currentChatId не задан или не существует в чатах, берём первый
+        if (!currentChatId || !chats.find(c => c.id === currentChatId)) {
+            currentChatId = chats[0].id;
+        }
+        renderChat();          // отображаем сообщения текущего чата
+        renderHistory();       // отображаем список чатов в сайдбаре (ВАЖНО!)
     } else {
-        createNewChat(true); // создаст приветственное сообщение
+        createNewChat(true);   // создаём приветственное сообщение
     }
 
     // Обновляем состояние кнопки отправки
@@ -395,8 +398,9 @@ function formatTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ==================== РЕНДЕР ЧАТА ====================
+// ==================== РЕНДЕР ЧАТА (СООБЩЕНИЯ) ====================
 function renderChat() {
+    // Убедимся, что currentChatId корректен
     if (!currentChatId && chats.length > 0) {
         currentChatId = chats[0].id;
     }
@@ -708,7 +712,7 @@ function updateSendButtonState() {
     }
 }
 
-// ==================== ИСТОРИЯ ====================
+// ==================== ИСТОРИЯ (СПИСОК ЧАТОВ) ====================
 function renderHistory() {
     if (!historyList) return;
     const searchTerm = historySearch ? historySearch.value.toLowerCase() : '';
