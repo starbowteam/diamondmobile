@@ -926,6 +926,83 @@ textarea::placeholder {
     padding: 4px;
 }
 
+/* ========== ШАПКА С ТРЁМЯ КОЛОНКАМИ ========== */
+.mobile-header.compact {
+    height: 48px;
+    background: #2d2d2d;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    border-bottom: 1px solid #3a3a3a;
+    flex-shrink: 0;
+}
+
+.header-left,
+.header-right {
+    width: 40px; /* фиксированная ширина, равна ширине бургера с учётом отступов */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.burger-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 20px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.header-logo img {
+    height: 28px;
+    width: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.header-logo span {
+    font-weight: 600;
+    font-size: 16px;
+    color: white;
+}
+
+/* Если нужна адаптация для очень маленьких экранов */
+@media (max-width: 360px) {
+    .header-left, .header-right {
+        width: 36px;
+    }
+    .burger-btn {
+        width: 32px;
+        font-size: 18px;
+    }
+    .header-logo span {
+        font-size: 14px;
+    }
+    .header-logo img {
+        height: 24px;
+        width: 24px;
+    }
+}
+
 @keyframes toastSlide {
     from { opacity: 0; transform: translateX(50px); }
     to { opacity: 1; transform: translateX(0); }
