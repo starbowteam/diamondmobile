@@ -925,7 +925,6 @@ textarea::placeholder {
     font-size: 14px;
     padding: 4px;
 }
-
 /* ========== ШАПКА С ТРЁМЯ КОЛОНКАМИ ========== */
 .mobile-header.compact {
     height: 48px;
@@ -985,7 +984,7 @@ textarea::placeholder {
     color: white;
 }
 
-/* Если нужна адаптация для очень маленьких экранов */
+/* Адаптация для узких экранов */
 @media (max-width: 360px) {
     .header-left, .header-right {
         width: 36px;
@@ -1001,6 +1000,9 @@ textarea::placeholder {
         height: 24px;
         width: 24px;
     }
+}
+
+/* Остальные стили (загрузочный экран, сайдбар, сообщения, тосты) остаются без изменений – используйте предыдущую версию */
 }
 
 @keyframes toastSlide {
