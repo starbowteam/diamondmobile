@@ -33,7 +33,7 @@
       <div class="welcome-content">
         <img src="logotip.png" class="welcome-logo" alt="logo"
              onerror="this.src='https://via.placeholder.com/100x100/1e1e1e/ffffff?text=AI'; this.style.borderRadius='50%';">
-        <div class="welcome-title">DIAMOND</div>
+        <div class="welcome-title">DIAMOND AI</div>
         <div class="loading-status" id="loadingStatus">Загрузка</div>
         <div class="loading-bar-container">
           <div class="loading-bar" id="loadingBar"></div>
@@ -53,17 +53,21 @@
 
     <!-- Основной интерфейс чата -->
     <div class="main-ui" id="mainUI" style="display: none;">
+      <!-- Шапка с тремя колонками для идеального центрирования -->
       <header class="mobile-header compact">
-        <button class="burger-btn" id="burgerBtn">
-          <i class="fas fa-bars"></i>
-        </button>
-        <div class="header-logo">
-          <img src="avatark.png" alt="avatar"
-               onerror="this.src='https://via.placeholder.com/28x28/1e1e1e/ffffff?text=AI'; this.style.borderRadius='50%';">
-          <span>DIAMOND</span>
+        <div class="header-left">
+          <button class="burger-btn" id="burgerBtn">
+            <i class="fas fa-bars"></i>
+          </button>
         </div>
-        <!-- Пустой блок для центрирования логотипа (ширина равна ширине бургера) -->
-        <div class="header-placeholder"></div>
+        <div class="header-center">
+          <div class="header-logo">
+            <img src="avatark.png" alt="avatar"
+                 onerror="this.src='https://via.placeholder.com/28x28/1e1e1e/ffffff?text=AI'; this.style.borderRadius='50%';">
+            <span>DIAMOND AI</span>
+          </div>
+        </div>
+        <div class="header-right"></div> <!-- пустой блок для симметрии -->
       </header>
 
       <div class="sidebar-overlay" id="sidebarOverlay"></div>
