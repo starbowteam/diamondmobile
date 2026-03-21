@@ -1,11 +1,7 @@
 // ==================== СОСТОЯНИЕ ====================
 let currentChatId = null;
 let chats = [];
-let availableModels = [];
-let lastSuccessfulModel = null;
 let userApiKey = null;
-let userKeyInfo = null;
-let balanceCheckInterval = null;
 let isWaitingForResponse = false;
 let currentAbortController = null;
 let currentStreamingMessageId = null;
@@ -186,12 +182,9 @@ async function checkKeyBalance(apiKey) {
             return false;
         }
         const data = await response.json();
-        userKeyInfo = data;
         if (data.limit !== undefined && data.usage !== undefined) {
             const remaining = data.limit - data.usage;
-            if (remaining <= 0) {
-                return false;
-            }
+            if (remaining <= 0) return false;
         }
         return true;
     } catch (error) {
@@ -239,8 +232,6 @@ async function checkKeyBalance(apiKey) {
     }
 
     userApiKey = serverKey;
-    await loadAvailableModels();
-    startBalanceMonitoring();
 
     mainUI.style.display = 'flex';
     setTimeout(() => mainUI.classList.add('visible'), 50);
@@ -258,39 +249,6 @@ async function checkKeyBalance(apiKey) {
     updateSendButtonState();
     setupEventListeners();
 })();
-
-// ==================== ЗАГРУЗКА МОДЕЛЕЙ ====================
-async function loadAvailableModels() {
-    if (!userApiKey) { availableModels = []; return; }
-    try {
-        const response = await fetch('https://openrouter.ai/api/v1/models', {
-            headers: { 'Authorization': `Bearer ${userApiKey}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch models');
-        const data = await response.json();
-        availableModels = data.data
-            .filter(model => model.id.includes(':free'))
-            .map(model => model.id);
-    } catch (error) {
-        log(`Ошибка загрузки моделей: ${error.message}`, 'ERROR');
-        availableModels = [];
-    }
-}
-
-function startBalanceMonitoring() {
-    if (balanceCheckInterval) clearInterval(balanceCheckInterval);
-    balanceCheckInterval = setInterval(async () => {
-        if (!userApiKey) return;
-        const isValid = await checkKeyBalance(userApiKey);
-        if (!isValid) {
-            clearInterval(balanceCheckInterval);
-            userApiKey = null;
-            userKeyInfo = null;
-            mainUI.style.display = 'none';
-            errorScreen.style.display = 'flex';
-        }
-    }, 60000);
-}
 
 // ==================== ЧАТЫ ====================
 function saveChats() {
@@ -581,6 +539,7 @@ async function sendMessage() {
     ];
 
     let modelsToTry = PRIORITY_MODELS;
+    // если есть успешная модель, ставим её первой
     if (lastSuccessfulModel && PRIORITY_MODELS.includes(lastSuccessfulModel)) {
         modelsToTry = [lastSuccessfulModel, ...PRIORITY_MODELS.filter(m => m !== lastSuccessfulModel)];
     }
@@ -733,7 +692,7 @@ if (burgerBtn && sidebar && sidebarOverlay) {
     };
     burgerBtn.addEventListener('click', openSidebar);
     sidebarOverlay.addEventListener('click', closeSidebar);
-    // Закрытие по свайпу влево (для тач-устройств)
+    // Закрываем по свайпу влево
     let touchStartX = 0;
     sidebar.addEventListener('touchstart', (e) => {
         touchStartX = e.touches[0].clientX;
