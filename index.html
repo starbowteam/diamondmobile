@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
   <title>DIAMOND AI Mobile</title>
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,16 +19,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Десктопный блокер (для мобильной версии) -->
-  <div class="desktop-blocker" id="desktopBlocker">
-    <div class="blocker-content">
-      <i class="fas fa-mobile-alt"></i>
-      <h2>Мобильная версия</h2>
-      <p>Откройте на смартфоне</p>
-    </div>
-  </div>
-
-  <!-- Основное приложение -->
   <div class="app" id="app">
     <!-- Загрузочный экран -->
     <div class="welcome-screen" id="welcomeScreen">
@@ -43,7 +33,7 @@
       </div>
     </div>
 
-    <!-- Экран ошибки -->
+    <!-- Экран ошибки (если ключ не получен) -->
     <div class="error-screen" id="errorScreen" style="display: none;">
       <div class="error-content">
         <i class="fas fa-exclamation-triangle"></i>
@@ -55,8 +45,8 @@
 
     <!-- Основной интерфейс чата -->
     <div class="main-ui" id="mainUI" style="display: none;">
-      <!-- Шапка с тремя колонками для центрирования -->
-      <header class="mobile-header compact">
+      <!-- Шапка -->
+      <header class="mobile-header">
         <div class="header-left">
           <button class="burger-btn" id="burgerBtn">
             <i class="fas fa-bars"></i>
@@ -74,7 +64,7 @@
 
       <!-- Оверлей и сайдбар -->
       <div class="sidebar-overlay" id="sidebarOverlay"></div>
-      <aside class="sidebar compact" id="sidebar">
+      <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <button class="new-chat-btn" id="newChatBtn">
             <i class="fas fa-plus"></i> <span>Новый чат</span>
@@ -97,6 +87,9 @@
         <div class="messages-container" id="messagesContainer"></div>
         <div class="input-area">
           <div class="input-wrapper">
+            <button class="mic-btn" id="micBtn" title="Голосовой ввод">
+              <i class="fas fa-microphone"></i>
+            </button>
             <textarea id="userInput" placeholder="Сообщение..." rows="1"></textarea>
             <button class="send-btn" id="sendBtn" disabled>
               <i class="fas fa-paper-plane"></i>
@@ -124,6 +117,32 @@
         <div class="avatar-upload">
           <button id="uploadAvatarBtn" class="upload-btn"><i class="fas fa-upload"></i> Загрузить своё</button>
           <button id="resetAvatarBtn" class="reset-btn"><i class="fas fa-undo"></i> Сбросить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальное окно голосового помощника (для визуализации) -->
+    <div id="voiceModal" class="voice-modal" style="display: none;">
+      <div class="voice-modal-content">
+        <div class="voice-modal-header">
+          <h3><i class="fas fa-microphone-alt"></i> Голосовой режим</h3>
+          <button class="close-modal-btn" id="closeVoiceModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="voice-visualizer-container">
+          <div class="voice-wave" id="voiceWave"></div>
+        </div>
+        <button id="voiceRecordBtn" class="voice-record-btn">
+          <i class="fas fa-microphone"></i> Начать запись
+        </button>
+        <div id="voiceTranscript" class="voice-transcript"></div>
+        <div id="voiceAssistantResponse" class="voice-response"></div>
+        <div class="voice-settings">
+          <label class="voice-switch">
+            <input type="checkbox" id="voiceAutoSend" checked> Автоотправка
+          </label>
+          <label class="voice-switch">
+            <input type="checkbox" id="voiceAutoSpeak" checked> Озвучивать ответы
+          </label>
         </div>
       </div>
     </div>
