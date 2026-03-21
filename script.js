@@ -15,9 +15,6 @@ let lastChatCreationTime = 0;
 const CHAT_CREATION_COOLDOWN = 1000;
 let userAvatar = { type: 'icon', value: 'fa-user' };
 
-const LOW_BALANCE_THRESHOLD = 1.0;
-const CRITICAL_BALANCE_THRESHOLD = 0.1;
-const BALANCE_CHECK_INTERVAL = 60000;
 const REQUEST_TIMEOUT = 30000;
 
 // ==================== ПРОМПТ ====================
@@ -292,7 +289,7 @@ function startBalanceMonitoring() {
             mainUI.style.display = 'none';
             errorScreen.style.display = 'flex';
         }
-    }, BALANCE_CHECK_INTERVAL);
+    }, 60000);
 }
 
 // ==================== ЧАТЫ ====================
@@ -506,11 +503,6 @@ function createTypingIndicator() {
     contentDiv.appendChild(dotsSpan);
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'cancel-generation';
-    cancelBtn.style.background = 'transparent';
-    cancelBtn.style.border = 'none';
-    cancelBtn.style.color = '#aaa';
-    cancelBtn.style.cursor = 'pointer';
-    cancelBtn.style.marginLeft = 'auto';
     cancelBtn.title = 'Отменить генерацию';
     cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
     const wrapper = document.createElement('div');
@@ -698,7 +690,7 @@ function renderHistory() {
         return `
             <div class="history-item ${isActive}" data-id="${chat.id}">
                 <button class="pin-chat ${chat.pinned ? 'pinned' : ''}" data-id="${chat.id}" title="${chat.pinned ? 'Открепить' : 'Закрепить'}"><i class="fas fa-thumbtack"></i></button>
-                <span class="chat-title">${chat.title}</span>
+                <span class="chat-title">${escapeHtml(chat.title)}</span>
                 <button class="delete-chat" data-id="${chat.id}" title="Удалить чат"><i class="fas fa-times"></i></button>
             </div>
         `;
@@ -716,25 +708,43 @@ function renderHistory() {
         btn.addEventListener('click', (e) => { e.stopPropagation(); deleteChat(btn.dataset.id); });
     });
 }
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
 
 if (historySearch) historySearch.addEventListener('input', renderHistory);
 if (newChatBtn) newChatBtn.addEventListener('click', () => createNewChat());
 
 // ==================== БУРГЕР ====================
-if (burgerBtn) {
-    burgerBtn.addEventListener('click', () => {
+if (burgerBtn && sidebar && sidebarOverlay) {
+    const openSidebar = () => {
         sidebar.classList.add('open');
         sidebarOverlay.classList.add('active');
-    });
-}
-if (sidebarOverlay) {
-    sidebarOverlay.addEventListener('click', () => {
+    };
+    const closeSidebar = () => {
         sidebar.classList.remove('open');
         sidebarOverlay.classList.remove('active');
+    };
+    burgerBtn.addEventListener('click', openSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    // Закрываем по свайпу влево (опционально)
+    let touchStartX = 0;
+    sidebar.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+    });
+    sidebar.addEventListener('touchmove', (e) => {
+        const deltaX = e.touches[0].clientX - touchStartX;
+        if (deltaX < -50) closeSidebar();
     });
 }
 
-// ==================== АВАТАР ПОЛЬЗОВАТЕЛЯ ====================
+// ==================== АВАТАР ====================
 if (avatarBtn) {
     avatarBtn.addEventListener('click', () => {
         avatarModal.style.display = 'flex';
@@ -796,8 +806,8 @@ function showToast(title, message, type = 'info', duration = 3000) {
     toast.innerHTML = `
         <i class="fas ${icon}"></i>
         <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
+            <div class="toast-title">${escapeHtml(title)}</div>
+            <div class="toast-message">${escapeHtml(message)}</div>
         </div>
         <button class="toast-close"><i class="fas fa-times"></i></button>
     `;
@@ -806,11 +816,11 @@ function showToast(title, message, type = 'info', duration = 3000) {
     setTimeout(() => toast.remove(), duration);
 }
 
-// ==================== КНОПКИ ====================
+// ==================== КНОПКИ СОЦСЕТЕЙ ====================
 if (discordBtn) discordBtn.addEventListener('click', () => window.open('https://discord.gg/diamondshop', '_blank'));
 if (telegramBtn) telegramBtn.addEventListener('click', () => window.open('https://t.me/+XbHQYFgGLXpkOTEy', '_blank'));
 
-// ==================== ОБРАБОТЧИКИ ПОЛЯ ВВОДА ====================
+// ==================== ПОЛЕ ВВОДА ====================
 if (userInput) {
     userInput.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -824,10 +834,7 @@ if (userInput) {
         }
     });
 }
-
-if (sendBtn) {
-    sendBtn.addEventListener('click', sendMessage);
-}
+if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
 window.addEventListener('click', (e) => {
     if (e.target === avatarModal) avatarModal.style.display = 'none';
