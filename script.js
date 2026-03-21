@@ -733,7 +733,7 @@ if (burgerBtn && sidebar && sidebarOverlay) {
     };
     burgerBtn.addEventListener('click', openSidebar);
     sidebarOverlay.addEventListener('click', closeSidebar);
-    // Закрываем по свайпу влево (опционально)
+    // Закрытие по свайпу влево (для тач-устройств)
     let touchStartX = 0;
     sidebar.addEventListener('touchstart', (e) => {
         touchStartX = e.touches[0].clientX;
