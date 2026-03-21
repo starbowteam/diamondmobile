@@ -1,29 +1,21 @@
 // ==================== СОСТОЯНИЕ ====================
 let currentChatId = null;
 let chats = [];
-let availableModels = [];
-let lastSuccessfulModel = null;
 let userApiKey = null;
-let userKeyInfo = null;
-let balanceCheckInterval = null;
 let isWaitingForResponse = false;
 let currentAbortController = null;
-let currentStreamingMessageId = null;
 let lastNotificationTime = 0;
 const NOTIFICATION_DEBOUNCE = 1000;
 let lastChatCreationTime = 0;
 const CHAT_CREATION_COOLDOWN = 1000;
 let userAvatar = { type: 'icon', value: 'fa-user' };
 
-const LOW_BALANCE_THRESHOLD = 1.0;
-const CRITICAL_BALANCE_THRESHOLD = 0.1;
-const BALANCE_CHECK_INTERVAL = 60000;
 const REQUEST_TIMEOUT = 30000;
 
-// ==================== ПРОМПТ ====================
+// ==================== ПРОМПТ (кешируем) ====================
 const SYSTEM_PROMPT = {
-    role: 'system',
-    content: `Ты — DIAMOND AI, абсолютный эксперт и идеальный собеседник. Создан viktorshopa — основателем сети Diamond. Твоя задача — быть полезным в любой ситуации: от глубоких научных дискуссий до дружеского общения.
+  role: 'system',
+  content: `Ты — DIAMOND AI, абсолютный эксперт и идеальный собеседник. Создан viktorshopa — основателем сети Diamond. Твоя задача — быть полезным в любой ситуации: от глубоких научных дискуссий до дружеского общения.
 
 📚 **Твои знания безграничны:**
 - **Химия**: используй \ce{} для формул: \ce{H2O}, \ce{CH3COOH + NaOH -> CH3COONa + H2O}.
@@ -42,34 +34,25 @@ const SYSTEM_PROMPT = {
 - Код: в тройных кавычках с указанием языка.`
 };
 
-// Приоритетные модели
+// Приоритетные модели (быстрые и бесплатные)
 const PRIORITY_MODELS = [
-    'arcee-ai/pony-alpha-7b:free',
-    'stepfun/step-3.5-flash:free',
-    'liquid/lfm-2.5-1.2b-instruct:free'
-];
-
-// Статусы загрузки
-const loadingStatuses = [
-    "Загрузка нейросети...",
-    "Активация кристаллов...",
-    "Калибровка ответов...",
-    "Получение API..",
-    "Запуск нейросети..."
+  'arcee-ai/pony-alpha-7b:free',
+  'stepfun/step-3.5-flash:free',
+  'liquid/lfm-2.5-1.2b-instruct:free'
 ];
 
 // ==================== НАСТРОЙКА KATEX ====================
 if (typeof markedKatex !== 'undefined') {
-    marked.use(markedKatex({
-        throwOnError: false,
-        output: 'html',
-        delimiters: [
-            { left: '$$', right: '$$', display: true },
-            { left: '$', right: '$', display: false },
-            { left: '\\(', right: '\\)', display: false },
-            { left: '\\[', right: '\\]', display: true }
-        ]
-    }));
+  marked.use(markedKatex({
+    throwOnError: false,
+    output: 'html',
+    delimiters: [
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+      { left: '\\(', right: '\\)', display: false },
+      { left: '\\[', right: '\\]', display: true }
+    ]
+  }));
 }
 
 // ==================== DOM ЭЛЕМЕНТЫ ====================
@@ -82,6 +65,9 @@ const sendBtn = document.getElementById('sendBtn');
 const newChatBtn = document.getElementById('newChatBtn');
 const historyList = document.getElementById('historyList');
 const historySearch = document.getElementById('historySearch');
+const burgerBtn = document.getElementById('burgerBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 const discordBtn = document.getElementById('discordBtn');
 const telegramBtn = document.getElementById('telegramBtn');
 const avatarBtn = document.getElementById('avatarBtn');
@@ -96,776 +82,560 @@ const toastContainer = document.getElementById('toastContainer');
 const loadingStatus = document.getElementById('loadingStatus');
 const loadingBar = document.getElementById('loadingBar');
 
-// Бургер
-const burgerBtn = document.getElementById('burgerBtn');
-const sidebar = document.getElementById('sidebar');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
-
 // ==================== ВСПОМОГАТЕЛЬНЫЕ ====================
 function getBotAvatarHTML() {
-    const cdnUrl = 'avatark.png';
-    const containerId = 'bot-avatar-' + Math.random().toString(36).substring(2);
-    const html = `<div id="${containerId}" style="width:100%; height:100%; border-radius:50%; background:#3a3a3a; display:flex; align-items:center; justify-content:center;"></div>`;
-    
-    setTimeout(() => {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        const img = new Image();
-        img.onload = () => {
-            container.innerHTML = `<img src="${cdnUrl}" style="width:100%; height:100%; object-fit:cover;">`;
-        };
-        img.onerror = () => {
-            container.style.background = '#3a3a3a';
-            container.innerHTML = '<span style="color:#fff; font-weight:bold;">AI</span>';
-        };
-        img.src = cdnUrl;
-    }, 0);
-    return html;
+  const containerId = 'bot-avatar-' + Math.random().toString(36).substring(2);
+  const html = `<div id="${containerId}" style="width:100%; height:100%; border-radius:50%; background:#3a3a3a; display:flex; align-items:center; justify-content:center;"><span style="color:#fff; font-weight:bold;">AI</span></div>`;
+  setTimeout(() => {
+    const container = document.getElementById(containerId);
+    if (container && !container.querySelector('img')) {
+      container.innerHTML = '<span style="color:#fff; font-weight:bold;">AI</span>';
+    }
+  }, 0);
+  return html;
 }
 
 function getUserAvatarHTML() {
-    if (userAvatar.type === 'icon') {
-        return `<i class="fas ${userAvatar.value}"></i>`;
-    } else if (userAvatar.type === 'custom' && userAvatar.dataUrl) {
-        return `<img src="${userAvatar.dataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
-    }
-    return '<i class="fas fa-user"></i>';
+  if (userAvatar.type === 'icon') {
+    return `<i class="fas ${userAvatar.value}"></i>`;
+  } else if (userAvatar.type === 'custom' && userAvatar.dataUrl) {
+    return `<img src="${userAvatar.dataUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+  }
+  return '<i class="fas fa-user"></i>';
 }
 
-// ==================== ЛОГГЕР ====================
-function log(message, level = 'INFO') {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [${level}] ${message}`);
+function showToast(title, message, type = 'info', duration = 3000) {
+  const now = Date.now();
+  if (now - lastNotificationTime < NOTIFICATION_DEBOUNCE) return;
+  lastNotificationTime = now;
+  if (!toastContainer) return;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  let icon = 'fa-circle-info';
+  if (type === 'success') icon = 'fa-check-circle';
+  else if (type === 'warning') icon = 'fa-exclamation-triangle';
+  else if (type === 'error') icon = 'fa-exclamation-circle';
+  toast.innerHTML = `
+    <i class="fas ${icon}"></i>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-message">${message}</div>
+    </div>
+    <button class="toast-close"><i class="fas fa-times"></i></button>
+  `;
+  toastContainer.appendChild(toast);
+  toast.querySelector('.toast-close').addEventListener('click', () => toast.remove());
+  setTimeout(() => toast.remove(), duration);
 }
 
 // ==================== ЗАГРУЗОЧНЫЙ ЭКРАН ====================
 async function showLoadingScreen() {
-    log('🎬 Запуск загрузочного экрана');
-    welcomeScreen.style.display = 'flex';
-    welcomeScreen.classList.remove('fade-out');
-    
-    let statusIndex = 0;
-    const statusInterval = setInterval(() => {
-        statusIndex = (statusIndex + 1) % loadingStatuses.length;
-        if (loadingStatus) {
-            loadingStatus.style.opacity = '0';
-            setTimeout(() => {
-                loadingStatus.textContent = loadingStatuses[statusIndex];
-                loadingStatus.style.opacity = '1';
-            }, 200);
-        }
-    }, 1500);
-    
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += 1;
-        if (loadingBar) loadingBar.style.width = progress + '%';
-        if (progress >= 100) clearInterval(progressInterval);
-    }, 70);
-    
-    await new Promise(resolve => setTimeout(resolve, 7000));
-    clearInterval(statusInterval);
-    clearInterval(progressInterval);
-    welcomeScreen.classList.add('fade-out');
-    await new Promise(resolve => setTimeout(resolve, 800));
+  welcomeScreen.style.display = 'flex';
+  const statuses = ["Загрузка нейросети...", "Активация кристаллов...", "Калибровка ответов...", "Запуск DIAMOND AI..."];
+  let idx = 0;
+  const statusInterval = setInterval(() => {
+    idx = (idx + 1) % statuses.length;
+    if (loadingStatus) loadingStatus.textContent = statuses[idx];
+  }, 1500);
+  let progress = 0;
+  const progressInterval = setInterval(() => {
+    progress += 1;
+    if (loadingBar) loadingBar.style.width = progress + '%';
+    if (progress >= 100) clearInterval(progressInterval);
+  }, 70);
+  await new Promise(r => setTimeout(r, 5000));
+  clearInterval(statusInterval);
+  clearInterval(progressInterval);
+  welcomeScreen.classList.add('fade-out');
+  await new Promise(r => setTimeout(r, 500));
 }
 
-// ==================== ПОЛУЧЕНИЕ КЛЮЧА С ТВОЕГО СЕРВЕРА ====================
+// ==================== ПОЛУЧЕНИЕ КЛЮЧА С СЕРВЕРА ====================
 async function fetchServerKey() {
-    try {
-        const response = await fetch('/api/get-key'); // относительный путь
-        if (!response.ok) {
-            log(`Ошибка сервера: ${response.status}`, 'ERROR');
-            return null;
-        }
-        const data = await response.json();
-        return data.key || null;
-    } catch (error) {
-        log(`Ошибка получения ключа с сервера: ${error.message}`, 'ERROR');
-        return null;
-    }
+  try {
+    const response = await fetch('/api/get-key');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return data.key || null;
+  } catch (error) {
+    console.error('Ошибка получения ключа:', error);
+    return null;
+  }
 }
 
 // ==================== ПРОВЕРКА КЛЮЧА ====================
 async function checkKeyBalance(apiKey) {
-    log('Проверка баланса...');
-    try {
-        const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
-            headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        if (!response.ok) {
-            log(`Ошибка API баланса: ${response.status}`, 'ERROR');
-            return false;
-        }
-        const data = await response.json();
-        userKeyInfo = data;
-        if (data.limit !== undefined && data.usage !== undefined) {
-            const remaining = data.limit - data.usage;
-            if (remaining <= 0) {
-                return false;
-            }
-        }
-        return true;
-    } catch (error) {
-        log(`Ошибка проверки баланса: ${error.message}`, 'ERROR');
-        return false;
-    }
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    // Для бесплатных ключей может не быть лимита, считаем валидным
+    return true;
+  } catch (error) {
+    console.error('Ошибка проверки ключа:', error);
+    return false;
+  }
 }
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 (async function init() {
-    log('🟢 Инициализация...');
-    
-    // Загрузка чатов из localStorage
-    try {
-        const stored = localStorage.getItem('diamondChats');
-        if (stored) {
-            chats = JSON.parse(stored);
-            // Убедимся, что у каждого чата есть id и messages
-            chats = chats.filter(chat => chat && chat.id && Array.isArray(chat.messages));
-            log(`Загружено ${chats.length} чатов`);
-        } else {
-            chats = [];
-            log('Нет сохранённых чатов');
-        }
-    } catch (e) {
-        log(`Ошибка загрузки чатов: ${e.message}`, 'ERROR');
-        chats = [];
-    }
-
-    // Загрузка аватара пользователя
-    try {
-        const saved = localStorage.getItem('userAvatar');
-        userAvatar = saved ? JSON.parse(saved) : { type: 'icon', value: 'fa-user' };
-    } catch { userAvatar = { type: 'icon', value: 'fa-user' }; }
-
-    await showLoadingScreen();
-    welcomeScreen.style.display = 'none';
-
-    // Получаем ключ с твоего сервера
-    const serverKey = await fetchServerKey();
-    if (!serverKey) {
-        log('❌ Не удалось получить ключ с сервера');
-        document.querySelector('.error-content h1').textContent = 'Сервер недоступен';
-        document.querySelector('.error-content p').textContent = 'Не удалось получить ключ. Попробуйте позже.';
-        errorScreen.style.display = 'flex';
-        return;
-    }
-
-    const isValid = await checkKeyBalance(serverKey);
-    if (!isValid) {
-        log('❌ Ключ с сервера недействителен');
-        errorScreen.style.display = 'flex';
-        return;
-    }
-
-    userApiKey = serverKey;
-    await loadAvailableModels();
-    startBalanceMonitoring();
-    
-    // Показываем основной интерфейс
-    mainUI.style.display = 'flex';
-    setTimeout(() => mainUI.classList.add('visible'), 50);
-    
-    // Если есть чаты, устанавливаем текущий и рендерим их
-    if (chats.length > 0) {
-        // Если currentChatId не задан или не существует в чатах, берём первый
-        if (!currentChatId || !chats.find(c => c.id === currentChatId)) {
-            currentChatId = chats[0].id;
-        }
-        renderChat();          // отображаем сообщения текущего чата
-        renderHistory();       // отображаем список чатов в сайдбаре (ВАЖНО!)
+  // Загрузка чатов
+  try {
+    const stored = localStorage.getItem('diamondChats');
+    if (stored) {
+      chats = JSON.parse(stored);
+      chats = chats.filter(chat => chat && chat.id && Array.isArray(chat.messages));
     } else {
-        createNewChat(true);   // создаём приветственное сообщение
+      chats = [];
     }
+  } catch (e) {
+    chats = [];
+  }
 
-    // Обновляем состояние кнопки отправки
-    updateSendButtonState();
-    
-    // Устанавливаем все обработчики
-    setupEventListeners();
+  // Загрузка аватара
+  try {
+    const saved = localStorage.getItem('userAvatar');
+    if (saved) userAvatar = JSON.parse(saved);
+  } catch { /* ignore */ }
+
+  await showLoadingScreen();
+  welcomeScreen.style.display = 'none';
+
+  const serverKey = await fetchServerKey();
+  if (!serverKey) {
+    errorScreen.style.display = 'flex';
+    return;
+  }
+
+  const isValid = await checkKeyBalance(serverKey);
+  if (!isValid) {
+    errorScreen.style.display = 'flex';
+    return;
+  }
+
+  userApiKey = serverKey;
+  mainUI.style.display = 'flex';
+  setTimeout(() => mainUI.classList.add('visible'), 50);
+
+  if (chats.length > 0) {
+    if (!currentChatId || !chats.find(c => c.id === currentChatId)) {
+      currentChatId = chats[0].id;
+    }
+    renderChat();
+    renderHistory();
+  } else {
+    createNewChat(true);
+  }
+
+  updateSendButtonState();
+  setupEventListeners();
 })();
-
-// ==================== ЗАГРУЗКА МОДЕЛЕЙ ====================
-async function loadAvailableModels() {
-    if (!userApiKey) { availableModels = []; return; }
-    try {
-        const response = await fetch('https://openrouter.ai/api/v1/models', {
-            headers: { 'Authorization': `Bearer ${userApiKey}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch models');
-        const data = await response.json();
-        availableModels = data.data
-            .filter(model => model.id.includes(':free'))
-            .map(model => model.id);
-    } catch (error) {
-        log(`Ошибка загрузки моделей: ${error.message}`, 'ERROR');
-        availableModels = [];
-    }
-}
-
-function startBalanceMonitoring() {
-    if (balanceCheckInterval) clearInterval(balanceCheckInterval);
-    balanceCheckInterval = setInterval(async () => {
-        if (!userApiKey) return;
-        const isValid = await checkKeyBalance(userApiKey);
-        if (!isValid) {
-            clearInterval(balanceCheckInterval);
-            userApiKey = null;
-            userKeyInfo = null;
-            mainUI.style.display = 'none';
-            errorScreen.style.display = 'flex';
-        }
-    }, BALANCE_CHECK_INTERVAL);
-}
 
 // ==================== ЧАТЫ ====================
 function saveChats() {
-    localStorage.setItem('diamondChats', JSON.stringify(chats));
-    renderHistory();
+  localStorage.setItem('diamondChats', JSON.stringify(chats));
+  renderHistory();
 }
-function isCurrentChatEmpty() {
-    const chat = chats.find(c => c.id === currentChatId);
-    return !chat || !chat.messages.some(m => m.role === 'user');
-}
+
 function generateChatTitle(userMessage) {
-    if (!userMessage) return 'Новый диалог';
-    let title = userMessage.trim();
-    if (title.length > 50) {
-        let truncated = title.substring(0, 50);
-        let lastSpace = truncated.lastIndexOf(' ');
-        title = lastSpace > 30 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
-    }
-    return title;
+  if (!userMessage) return 'Новый диалог';
+  let title = userMessage.trim();
+  if (title.length > 50) {
+    let truncated = title.substring(0, 50);
+    let lastSpace = truncated.lastIndexOf(' ');
+    title = lastSpace > 30 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+  }
+  return title;
 }
+
 function createNewChat(force = false) {
-    if (!force && chats.length > 0 && isCurrentChatEmpty()) {
-        showToast('⚠️ Нельзя создать новый чат', 'Сначала напишите что-нибудь', 'warning');
-        return;
-    }
-    const now = Date.now();
-    if (now - lastChatCreationTime < CHAT_CREATION_COOLDOWN) {
-        showToast('⏳ Подождите', 'Не так быстро', 'warning');
-        return;
-    }
-    lastChatCreationTime = now;
-    const newChat = {
-        id: Date.now().toString(),
-        title: 'Новый диалог',
-        messages: [{
-            role: 'assistant',
-            content: 'Здравствуй, я Diamond AI. Чем могу помочь?',
-            timestamp: Date.now()
-        }],
-        createdAt: Date.now(),
-        pinned: false
-    };
-    chats.unshift(newChat);
-    currentChatId = newChat.id;
+  if (!force && chats.length > 0 && isCurrentChatEmpty()) {
+    showToast('⚠️ Нельзя создать новый чат', 'Сначала напишите что-нибудь', 'warning');
+    return;
+  }
+  const now = Date.now();
+  if (now - lastChatCreationTime < CHAT_CREATION_COOLDOWN) {
+    showToast('⏳ Подождите', 'Не так быстро', 'warning');
+    return;
+  }
+  lastChatCreationTime = now;
+  const newChat = {
+    id: Date.now().toString(),
+    title: 'Новый диалог',
+    messages: [{
+      role: 'assistant',
+      content: 'Здравствуй, я Diamond AI. Чем могу помочь?',
+      timestamp: Date.now()
+    }],
+    createdAt: Date.now(),
+    pinned: false
+  };
+  chats.unshift(newChat);
+  currentChatId = newChat.id;
+  saveChats();
+  renderChat();
+}
+
+function deleteChat(chatId) {
+  chats = chats.filter(chat => chat.id !== chatId);
+  if (chats.length === 0) createNewChat(true);
+  else {
+    if (currentChatId === chatId) currentChatId = chats[0].id;
     saveChats();
     renderChat();
-    renderHistory();
+  }
 }
-function deleteChat(chatId) {
-    chats = chats.filter(chat => chat.id !== chatId);
-    if (chats.length === 0) createNewChat(true);
-    else {
-        if (currentChatId === chatId) currentChatId = chats[0].id;
-        saveChats();
-        renderChat();
-        renderHistory();
-    }
-}
+
 function switchChat(chatId) {
-    currentChatId = chatId;
-    renderChat();
-    renderHistory();
+  currentChatId = chatId;
+  renderChat();
+  renderHistory();
 }
+
 function togglePin(chatId) {
-    const chat = chats.find(c => c.id === chatId);
-    if (chat) { chat.pinned = !chat.pinned; saveChats(); renderHistory(); }
+  const chat = chats.find(c => c.id === chatId);
+  if (chat) { chat.pinned = !chat.pinned; saveChats(); }
+}
+
+function isCurrentChatEmpty() {
+  const chat = chats.find(c => c.id === currentChatId);
+  return !chat || !chat.messages.some(m => m.role === 'user');
 }
 
 // ==================== ФОРМАТИРОВАНИЕ ====================
 function formatDateHeader(timestamp) {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return 'Сегодня';
-    else if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
-    else return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-function formatTime(timestamp) {
-    return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Сегодня';
+  if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
+  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-// ==================== РЕНДЕР ЧАТА (СООБЩЕНИЯ) ====================
+function formatTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ==================== РЕНДЕР ЧАТА ====================
 function renderChat() {
-    // Убедимся, что currentChatId корректен
-    if (!currentChatId && chats.length > 0) {
-        currentChatId = chats[0].id;
+  const chat = chats.find(c => c.id === currentChatId);
+  if (!chat) { createNewChat(true); return; }
+  messagesContainer.innerHTML = '';
+  let lastDate = null;
+  chat.messages.forEach((msg, idx) => {
+    const msgDate = new Date(msg.timestamp || chat.createdAt + idx * 1000).toDateString();
+    if (msgDate !== lastDate) {
+      const divider = document.createElement('div');
+      divider.className = 'date-divider';
+      divider.innerHTML = `<span>${formatDateHeader(msg.timestamp || chat.createdAt)}</span>`;
+      messagesContainer.appendChild(divider);
+      lastDate = msgDate;
     }
-    const chat = chats.find(c => c.id === currentChatId);
-    if (!chat) {
-        if (chats.length > 0) {
-            currentChatId = chats[0].id;
-            renderChat();
-        } else {
-            createNewChat(true);
-        }
-        return;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${msg.role}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.innerHTML = msg.role === 'user' ? getUserAvatarHTML() : getBotAvatarHTML();
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'message-content-wrapper';
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    if (msg.role === 'assistant' && typeof marked !== 'undefined') {
+      contentDiv.innerHTML = marked.parse(msg.content);
+    } else {
+      contentDiv.textContent = msg.content;
     }
-    
-    if (!messagesContainer) {
-        log('messagesContainer не найден', 'ERROR');
-        return;
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'message-time';
+    timeDiv.textContent = formatTime(msg.timestamp || Date.now());
+    contentWrapper.appendChild(contentDiv);
+    contentWrapper.appendChild(timeDiv);
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(contentWrapper);
+    // Кнопки копирования/регенерации
+    if (msg.role === 'assistant') {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'message-actions';
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'action-btn';
+      copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+      copyBtn.title = 'Копировать';
+      copyBtn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(msg.content);
+        copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => copyBtn.innerHTML = '<i class="fas fa-copy"></i>', 1000);
+      };
+      const regenerateBtn = document.createElement('button');
+      regenerateBtn.className = 'action-btn';
+      regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+      regenerateBtn.title = 'Перегенерировать';
+      regenerateBtn.onclick = (e) => { e.stopPropagation(); regenerateResponse(msg); };
+      actionsDiv.appendChild(copyBtn);
+      actionsDiv.appendChild(regenerateBtn);
+      messageDiv.appendChild(actionsDiv);
     }
-    
-    messagesContainer.innerHTML = '';
-    let lastDate = null;
-    chat.messages.forEach((msg, index) => {
-        const msgDate = new Date(msg.timestamp || chat.createdAt + index * 1000).toDateString();
-        if (msgDate !== lastDate) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerHTML = `<span>${formatDateHeader(msg.timestamp || chat.createdAt)}</span>`;
-            messagesContainer.appendChild(divider);
-            lastDate = msgDate;
-        }
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${msg.role}`;
-        if (msg.id === currentStreamingMessageId) messageDiv.classList.add('streaming');
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.innerHTML = msg.role === 'user' ? getUserAvatarHTML() : getBotAvatarHTML();
-        const contentWrapper = document.createElement('div');
-        contentWrapper.className = 'message-content-wrapper';
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        if (msg.role === 'assistant' && typeof marked !== 'undefined') {
-            contentDiv.innerHTML = marked.parse(msg.content);
-        } else contentDiv.textContent = msg.content;
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'message-time';
-        timeDiv.textContent = formatTime(msg.timestamp || Date.now());
-        contentWrapper.appendChild(contentDiv);
-        contentWrapper.appendChild(timeDiv);
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(contentWrapper);
-        if (msg.role === 'assistant' && msg.id !== currentStreamingMessageId) {
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'message-actions';
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'action-btn';
-            copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
-            copyBtn.title = 'Копировать текст';
-            copyBtn.onclick = (e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(msg.content);
-                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
-                setTimeout(() => copyBtn.innerHTML = '<i class="fas fa-copy"></i>', 1000);
-            };
-            const regenerateBtn = document.createElement('button');
-            regenerateBtn.className = 'action-btn';
-            regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-            regenerateBtn.title = 'Перегенерировать ответ';
-            regenerateBtn.onclick = (e) => { e.stopPropagation(); regenerateResponse(msg); };
-            actionsDiv.appendChild(copyBtn);
-            actionsDiv.appendChild(regenerateBtn);
-            messageDiv.appendChild(actionsDiv);
-        }
-        messagesContainer.appendChild(messageDiv);
-    });
-    scrollToBottom();
+    messagesContainer.appendChild(messageDiv);
+  });
+  scrollToBottom();
 }
 
 function addMessageToDOM(role, content, save = true) {
-    const timestamp = Date.now();
-    const messageId = Date.now().toString() + Math.random();
-    if (save) {
-        const chat = chats.find(c => c.id === currentChatId);
-        if (chat) {
-            chat.messages.push({ id: messageId, role, content, timestamp });
-            if (role === 'user' && chat.messages.filter(m => m.role === 'user').length === 1) {
-                chat.title = generateChatTitle(content);
-            }
-            saveChats();
-        }
+  const timestamp = Date.now();
+  const messageId = Date.now().toString() + Math.random();
+  if (save) {
+    const chat = chats.find(c => c.id === currentChatId);
+    if (chat) {
+      chat.messages.push({ id: messageId, role, content, timestamp });
+      if (role === 'user' && chat.messages.filter(m => m.role === 'user').length === 1) {
+        chat.title = generateChatTitle(content);
+      }
+      saveChats();
     }
-    if (role === 'assistant' && save) currentStreamingMessageId = messageId;
-    renderChat();
-    return messageId;
+  }
+  renderChat();
+  return messageId;
 }
 
 async function regenerateResponse(oldMsg) {
-    const chat = chats.find(c => c.id === currentChatId);
-    if (!chat) return;
-    const index = chat.messages.findIndex(m => m === oldMsg);
-    if (index !== -1) {
-        chat.messages.splice(index, 1);
-        saveChats();
-        renderChat();
-    }
-    const lastUserMsg = [...chat.messages].reverse().find(m => m.role === 'user');
-    if (lastUserMsg) {
-        userInput.value = lastUserMsg.content;
-        sendMessage();
-    }
+  const chat = chats.find(c => c.id === currentChatId);
+  if (!chat) return;
+  const index = chat.messages.findIndex(m => m === oldMsg);
+  if (index !== -1) {
+    chat.messages.splice(index, 1);
+    saveChats();
+    renderChat();
+  }
+  const lastUserMsg = [...chat.messages].reverse().find(m => m.role === 'user');
+  if (lastUserMsg) {
+    userInput.value = lastUserMsg.content;
+    sendMessage();
+  }
 }
 
 // ==================== ИНДИКАТОР "ДУМАЕТ..." ====================
 function createTypingIndicator() {
-    const div = document.createElement('div');
-    div.className = 'message assistant typing';
-    const startTime = Date.now();
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    contentDiv.style.display = 'flex';
-    contentDiv.style.alignItems = 'center';
-    contentDiv.style.gap = '8px';
-    const textSpan = document.createElement('span'); textSpan.textContent = 'Думает';
-    const counterSpan = document.createElement('span');
-    counterSpan.className = 'thinking-counter';
-    counterSpan.textContent = '[0с]';
-    counterSpan.style.color = '#888';
-    counterSpan.style.fontSize = '12px';
-    const dotsSpan = document.createElement('span');
-    dotsSpan.className = 'dots';
-    dotsSpan.style.minWidth = '24px';
-    contentDiv.appendChild(textSpan);
-    contentDiv.appendChild(counterSpan);
-    contentDiv.appendChild(dotsSpan);
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'cancel-generation';
-    cancelBtn.style.background = 'transparent';
-    cancelBtn.style.border = 'none';
-    cancelBtn.style.color = '#aaa';
-    cancelBtn.style.cursor = 'pointer';
-    cancelBtn.style.marginLeft = 'auto';
-    cancelBtn.title = 'Отменить генерацию';
-    cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
-    const wrapper = document.createElement('div');
-    wrapper.className = 'message-content-wrapper';
-    wrapper.appendChild(contentDiv);
-    div.innerHTML = `<div class="avatar">${getBotAvatarHTML()}</div>`;
-    div.appendChild(wrapper);
-    div.querySelector('.message-content-wrapper').appendChild(cancelBtn);
-    const interval = setInterval(() => {
-        const seconds = Math.floor((Date.now() - startTime) / 1000);
-        counterSpan.textContent = `[${seconds}с]`;
-    }, 200);
-    let dotCount = 0;
-    const dotsInterval = setInterval(() => {
-        dotCount = (dotCount + 1) % 4;
-        dotsSpan.textContent = '.'.repeat(dotCount) + ' '.repeat(3 - dotCount);
-    }, 200);
-    cancelBtn.addEventListener('click', () => {
-        if (currentAbortController) {
-            currentAbortController.abort();
-            currentAbortController = null;
-            div.remove();
-            isWaitingForResponse = false;
-            updateSendButtonState();
-            currentStreamingMessageId = null;
-        }
-        clearInterval(interval);
-        clearInterval(dotsInterval);
-    });
-    div.cleanup = () => { clearInterval(interval); clearInterval(dotsInterval); };
-    return div;
+  const div = document.createElement('div');
+  div.className = 'message assistant typing';
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'message-content';
+  contentDiv.innerHTML = '<span>Думает</span><span class="dots">...</span>';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'message-content-wrapper';
+  wrapper.appendChild(contentDiv);
+  div.innerHTML = `<div class="avatar">${getBotAvatarHTML()}</div>`;
+  div.appendChild(wrapper);
+  return div;
 }
 
-// ==================== ПРЕДОБРАБОТКА ЗАПРОСА ====================
+// ==================== ПРЕДОБРАБОТКА ====================
 function preprocessQuery(text) {
-    let processed = text.trim();
-    processed = processed.replace(/\bNAOH\b/gi, 'NaOH');
-    processed = processed.replace(/\bNaOh\b/g, 'NaOH');
-    processed = processed.replace(/\bCH3COOH\b/g, 'CH3COOH');
-    processed = processed.replace(/\bH2SO4\b/g, 'H2SO4');
-    return processed;
+  let processed = text.trim();
+  processed = processed.replace(/\bNAOH\b/gi, 'NaOH');
+  processed = processed.replace(/\bNaOh\b/g, 'NaOH');
+  return processed;
 }
 
-// ==================== ОТПРАВКА СООБЩЕНИЯ ====================
+// ==================== ОТПРАВКА СООБЩЕНИЯ (оптимизировано) ====================
 async function sendMessage() {
-    log('sendMessage вызван');
-    if (!userApiKey) {
-        showToast('⚠️ Требуется вход', 'Сначала войдите', 'warning');
-        return;
-    }
-    if (isWaitingForResponse) {
-        showToast('⏳ Ожидание', 'Дождитесь ответа', 'warning');
-        return;
-    }
+  if (!userApiKey) {
+    showToast('⚠️ Требуется вход', 'Сначала войдите', 'warning');
+    return;
+  }
+  if (isWaitingForResponse) {
+    showToast('⏳ Ожидание', 'Дождитесь ответа', 'warning');
+    return;
+  }
+  const rawText = userInput.value.trim();
+  if (!rawText) return;
+  const text = preprocessQuery(rawText);
 
-    const rawText = userInput.value.trim();
-    if (!rawText) return;
-    const text = preprocessQuery(rawText);
+  isWaitingForResponse = true;
+  updateSendButtonState();
+  addMessageToDOM('user', rawText, true);
+  userInput.value = '';
+  userInput.style.height = 'auto';
 
-    isWaitingForResponse = true;
-    updateSendButtonState();
-    addMessageToDOM('user', rawText, true);
-    userInput.value = '';
-    userInput.style.height = 'auto';
+  const typingDiv = createTypingIndicator();
+  messagesContainer.appendChild(typingDiv);
+  scrollToBottom();
 
-    const typingDiv = createTypingIndicator();
-    messagesContainer.appendChild(typingDiv);
-    scrollToBottom();
+  const chat = chats.find(c => c.id === currentChatId);
+  const contextMessages = chat.messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+  const messages = [SYSTEM_PROMPT, ...contextMessages, { role: 'user', content: text }];
 
-    const chat = chats.find(c => c.id === currentChatId);
-    const contextMessages = chat.messages.slice(-15).map(m => ({ role: m.role, content: m.content }));
-    const messages = [
-        SYSTEM_PROMPT,
-        ...contextMessages,
-        { role: 'user', content: text }
-    ];
+  currentAbortController = new AbortController();
+  const timeoutId = setTimeout(() => currentAbortController.abort(), REQUEST_TIMEOUT);
 
-    let modelsToTry = PRIORITY_MODELS;
-    if (lastSuccessfulModel && PRIORITY_MODELS.includes(lastSuccessfulModel)) {
-        modelsToTry = [lastSuccessfulModel, ...PRIORITY_MODELS.filter(m => m !== lastSuccessfulModel)];
-    }
+  let success = false;
+  for (const model of PRIORITY_MODELS) {
+    if (success) break;
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userApiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'DIAMOND AI Mobile'
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          temperature: 0.5,
+          max_tokens: 2000
+        }),
+        signal: currentAbortController.signal
+      });
 
-    currentAbortController = new AbortController();
-    const timeoutId = setTimeout(() => currentAbortController.abort(), REQUEST_TIMEOUT);
-
-    let success = false;
-    for (const model of modelsToTry) {
-        if (success) break;
-        try {
-            log(`Попытка модели: ${model}`);
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${userApiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'DIAMOND AI Mobile'
-                },
-                body: JSON.stringify({ 
-                    model, 
-                    messages, 
-                    stream: false,
-                    temperature: 0.5,
-                    max_tokens: 2000
-                }),
-                signal: currentAbortController.signal
-            });
-
-            if (!response.ok) {
-                if (response.status === 402) {
-                    showToast('💸 Баланс исчерпан', 'Ключ истек', 'error');
-                    typingDiv.remove(); typingDiv.cleanup();
-                    isWaitingForResponse = false;
-                    updateSendButtonState();
-                    return;
-                }
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            let assistantMessage = data.choices[0]?.message?.content || '';
-            const finishReason = data.choices[0]?.finish_reason;
-
-            if (!assistantMessage) {
-                log(`Пустой ответ от модели ${model}`, 'WARN');
-                continue;
-            }
-
-            if (finishReason === 'length') {
-                assistantMessage += '\n\n*[Ответ был прерван из-за ограничения длины. Хотите, я продолжу?]*';
-            }
-
-            typingDiv.remove(); typingDiv.cleanup();
-            addMessageToDOM('assistant', assistantMessage, true);
-            lastSuccessfulModel = model;
-            success = true;
-            break;
-
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                log('Таймаут', 'WARN');
-                showToast('⏱️ Таймаут', 'Пробую другую модель', 'warning');
-            } else {
-                log(`Модель ${model} не сработала: ${error.message}`, 'WARN');
-            }
+      if (!response.ok) {
+        if (response.status === 402) {
+          showToast('💸 Баланс исчерпан', 'Ключ истек', 'error');
+          break;
         }
-    }
+        throw new Error(`HTTP ${response.status}`);
+      }
 
-    clearTimeout(timeoutId);
-    if (!success) {
-        typingDiv.remove(); typingDiv.cleanup();
-        addMessageToDOM('assistant', 'Извините, сейчас проблемы с подключением к нейросети. Попробуйте ещё раз через минуту.', true);
-    }
+      const data = await response.json();
+      let assistantMessage = data.choices[0]?.message?.content || '';
+      if (!assistantMessage) continue;
 
-    isWaitingForResponse = false;
-    updateSendButtonState();
-    currentAbortController = null;
-    currentStreamingMessageId = null;
+      typingDiv.remove();
+      addMessageToDOM('assistant', assistantMessage, true);
+      success = true;
+      break;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        showToast('⏱️ Таймаут', 'Модель не отвечает', 'warning');
+      } else {
+        console.error(error);
+      }
+    }
+  }
+
+  clearTimeout(timeoutId);
+  if (!success) {
+    typingDiv.remove();
+    addMessageToDOM('assistant', 'Извините, сейчас проблемы с подключением к нейросети. Попробуйте ещё раз.', true);
+  }
+
+  isWaitingForResponse = false;
+  updateSendButtonState();
+  currentAbortController = null;
 }
 
 function scrollToBottom() {
-    if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+  if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 function updateSendButtonState() {
-    if (sendBtn) {
-        sendBtn.disabled = !userInput.value.trim() || isWaitingForResponse;
-    }
+  sendBtn.disabled = !userInput.value.trim() || isWaitingForResponse;
 }
 
-// ==================== ИСТОРИЯ (СПИСОК ЧАТОВ) ====================
+// ==================== ИСТОРИЯ ====================
 function renderHistory() {
-    if (!historyList) return;
-    const searchTerm = historySearch ? historySearch.value.toLowerCase() : '';
-    const filtered = chats.filter(chat =>
-        chat.title.toLowerCase().includes(searchTerm) ||
-        chat.messages.some(m => m.role === 'user' && m.content.toLowerCase().includes(searchTerm))
-    );
-    const pinned = filtered.filter(c => c.pinned);
-    const unpinned = filtered.filter(c => !c.pinned);
-    const sorted = [...pinned, ...unpinned];
-    historyList.innerHTML = sorted.map(chat => {
-        const isActive = chat.id === currentChatId ? 'active' : '';
-        return `
-            <div class="history-item ${isActive}" data-id="${chat.id}">
-                <button class="pin-chat ${chat.pinned ? 'pinned' : ''}" data-id="${chat.id}" title="${chat.pinned ? 'Открепить' : 'Закрепить'}"><i class="fas fa-thumbtack"></i></button>
-                <span class="chat-title">${chat.title}</span>
-                <button class="delete-chat" data-id="${chat.id}" title="Удалить чат"><i class="fas fa-times"></i></button>
-            </div>
-        `;
-    }).join('');
-    document.querySelectorAll('.history-item').forEach(el => {
-        const chatId = el.dataset.id;
-        el.addEventListener('click', (e) => {
-            if (!e.target.closest('.pin-chat') && !e.target.closest('.delete-chat')) switchChat(chatId);
-        });
+  if (!historyList) return;
+  const searchTerm = historySearch ? historySearch.value.toLowerCase() : '';
+  const filtered = chats.filter(chat =>
+    chat.title.toLowerCase().includes(searchTerm) ||
+    chat.messages.some(m => m.role === 'user' && m.content.toLowerCase().includes(searchTerm))
+  );
+  const sorted = [...filtered.filter(c => c.pinned), ...filtered.filter(c => !c.pinned)];
+  historyList.innerHTML = sorted.map(chat => `
+    <div class="history-item ${chat.id === currentChatId ? 'active' : ''}" data-id="${chat.id}">
+      <button class="pin-chat ${chat.pinned ? 'pinned' : ''}" data-id="${chat.id}"><i class="fas fa-thumbtack"></i></button>
+      <span class="chat-title">${chat.title}</span>
+      <button class="delete-chat" data-id="${chat.id}"><i class="fas fa-times"></i></button>
+    </div>
+  `).join('');
+  document.querySelectorAll('.history-item').forEach(el => {
+    const id = el.dataset.id;
+    el.addEventListener('click', (e) => {
+      if (!e.target.closest('.pin-chat') && !e.target.closest('.delete-chat')) switchChat(id);
     });
-    document.querySelectorAll('.pin-chat').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); togglePin(btn.dataset.id); });
-    });
-    document.querySelectorAll('.delete-chat').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); deleteChat(btn.dataset.id); });
-    });
+  });
+  document.querySelectorAll('.pin-chat').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); togglePin(btn.dataset.id); });
+  });
+  document.querySelectorAll('.delete-chat').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); deleteChat(btn.dataset.id); });
+  });
 }
 
-if (historySearch) historySearch.addEventListener('input', renderHistory);
-if (newChatBtn) newChatBtn.addEventListener('click', () => createNewChat());
-
-// ==================== БУРГЕР ====================
-if (burgerBtn) {
-    burgerBtn.addEventListener('click', () => {
-        sidebar.classList.add('open');
-        sidebarOverlay.classList.add('active');
-    });
-}
-if (sidebarOverlay) {
-    sidebarOverlay.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('active');
-    });
-}
-
-// ==================== АВАТАР ПОЛЬЗОВАТЕЛЯ ====================
-if (avatarBtn) {
-    avatarBtn.addEventListener('click', () => {
-        avatarModal.style.display = 'flex';
-        avatarIcons.forEach(icon => {
-            const iconClass = icon.dataset.icon;
-            if (userAvatar.type === 'icon' && userAvatar.value === iconClass) icon.classList.add('selected');
-            else icon.classList.remove('selected');
-        });
-    });
-}
-if (closeAvatarModal) closeAvatarModal.addEventListener('click', () => avatarModal.style.display = 'none');
-avatarIcons.forEach(icon => {
-    icon.addEventListener('click', () => {
-        saveAvatar({ type: 'icon', value: icon.dataset.icon });
-        avatarModal.style.display = 'none';
-    });
-});
-if (uploadAvatarBtn) {
-    uploadAvatarBtn.addEventListener('click', () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    saveAvatar({ type: 'custom', dataUrl: event.target.result, fileName: file.name });
-                    avatarModal.style.display = 'none';
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-        input.click();
-    });
-}
-if (resetAvatarBtn) resetAvatarBtn.addEventListener('click', () => {
-    saveAvatar({ type: 'icon', value: 'fa-user' });
-    avatarModal.style.display = 'none';
-});
-
+// ==================== АВАТАР ====================
 function saveAvatar(avatarData) {
-    localStorage.setItem('userAvatar', JSON.stringify(avatarData));
-    userAvatar = avatarData;
-    renderChat();
+  localStorage.setItem('userAvatar', JSON.stringify(avatarData));
+  userAvatar = avatarData;
+  renderChat();
 }
+avatarBtn?.addEventListener('click', () => {
+  avatarModal.style.display = 'flex';
+  avatarIcons.forEach(icon => {
+    const iconClass = icon.dataset.icon;
+    if (userAvatar.type === 'icon' && userAvatar.value === iconClass) icon.classList.add('selected');
+    else icon.classList.remove('selected');
+  });
+});
+closeAvatarModal?.addEventListener('click', () => avatarModal.style.display = 'none');
+avatarIcons.forEach(icon => {
+  icon.addEventListener('click', () => {
+    saveAvatar({ type: 'icon', value: icon.dataset.icon });
+    avatarModal.style.display = 'none';
+  });
+});
+uploadAvatarBtn?.addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        saveAvatar({ type: 'custom', dataUrl: event.target.result });
+        avatarModal.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  input.click();
+});
+resetAvatarBtn?.addEventListener('click', () => {
+  saveAvatar({ type: 'icon', value: 'fa-user' });
+  avatarModal.style.display = 'none';
+});
 
-function showToast(title, message, type = 'info', duration = 3000) {
-    const now = Date.now();
-    if (now - lastNotificationTime < NOTIFICATION_DEBOUNCE) return;
-    lastNotificationTime = now;
-    if (!toastContainer) return;
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    let icon = 'fa-circle-info';
-    if (type === 'success') icon = 'fa-check-circle';
-    else if (type === 'warning') icon = 'fa-exclamation-triangle';
-    else if (type === 'error') icon = 'fa-exclamation-circle';
-    toast.innerHTML = `
-        <i class="fas ${icon}"></i>
-        <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
-        </div>
-        <button class="toast-close"><i class="fas fa-times"></i></button>
-    `;
-    toastContainer.appendChild(toast);
-    toast.querySelector('.toast-close').addEventListener('click', () => toast.remove());
-    setTimeout(() => toast.remove(), duration);
-}
-
-// ==================== КНОПКИ ====================
-if (discordBtn) discordBtn.addEventListener('click', () => window.open('https://discord.gg/diamondshop', '_blank'));
-if (telegramBtn) telegramBtn.addEventListener('click', () => window.open('https://t.me/+XbHQYFgGLXpkOTEy', '_blank'));
-
-// ==================== ОБРАБОТЧИКИ ПОЛЯ ВВОДА ====================
-if (userInput) {
+// ==================== ОБРАБОТЧИКИ ====================
+function setupEventListeners() {
+  if (userInput) {
     userInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-        updateSendButtonState();
+      this.style.height = 'auto';
+      this.style.height = (this.scrollHeight) + 'px';
+      updateSendButtonState();
     });
     userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
     });
-}
-
-if (sendBtn) {
-    sendBtn.addEventListener('click', sendMessage);
-}
-
-// Закрытие модалки по клику вне
-window.addEventListener('click', (e) => {
+  }
+  sendBtn?.addEventListener('click', sendMessage);
+  newChatBtn?.addEventListener('click', () => createNewChat());
+  burgerBtn?.addEventListener('click', () => {
+    sidebar.classList.add('open');
+    sidebarOverlay.classList.add('active');
+  });
+  sidebarOverlay?.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('active');
+  });
+  discordBtn?.addEventListener('click', () => window.open('https://discord.gg/diamondshop', '_blank'));
+  telegramBtn?.addEventListener('click', () => window.open('https://t.me/+XbHQYFgGLXpkOTEy', '_blank'));
+  historySearch?.addEventListener('input', renderHistory);
+  window.addEventListener('click', (e) => {
     if (e.target === avatarModal) avatarModal.style.display = 'none';
-});
-
-// ==================== ВСПОМОГАТЕЛЬНЫЙ ФУНКЦИОНАЛ ====================
-function setupEventListeners() {
-    // Все обработчики уже добавлены выше
+  });
 }
