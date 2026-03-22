@@ -1,7 +1,11 @@
 // ==================== СОСТОЯНИЕ ====================
 let currentChatId = null;
 let chats = [];
+let availableModels = [];
+let lastSuccessfulModel = null;
 let userApiKey = null;
+let userKeyInfo = null;
+let balanceCheckInterval = null;
 let isWaitingForResponse = false;
 let currentAbortController = null;
 let currentStreamingMessageId = null;
@@ -11,6 +15,9 @@ let lastChatCreationTime = 0;
 const CHAT_CREATION_COOLDOWN = 1000;
 let userAvatar = { type: 'icon', value: 'fa-user' };
 
+const LOW_BALANCE_THRESHOLD = 1.0;
+const CRITICAL_BALANCE_THRESHOLD = 0.1;
+const BALANCE_CHECK_INTERVAL = 60000;
 const REQUEST_TIMEOUT = 30000;
 
 // ==================== ПРОМПТ ====================
@@ -35,12 +42,14 @@ const SYSTEM_PROMPT = {
 - Код: в тройных кавычках с указанием языка.`
 };
 
+// Приоритетные модели
 const PRIORITY_MODELS = [
     'arcee-ai/pony-alpha-7b:free',
     'stepfun/step-3.5-flash:free',
     'liquid/lfm-2.5-1.2b-instruct:free'
 ];
 
+// Статусы загрузки
 const loadingStatuses = [
     "Загрузка нейросети...",
     "Активация кристаллов...",
@@ -73,9 +82,6 @@ const sendBtn = document.getElementById('sendBtn');
 const newChatBtn = document.getElementById('newChatBtn');
 const historyList = document.getElementById('historyList');
 const historySearch = document.getElementById('historySearch');
-const burgerBtn = document.getElementById('burgerBtn');
-const sidebar = document.getElementById('sidebar');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
 const discordBtn = document.getElementById('discordBtn');
 const telegramBtn = document.getElementById('telegramBtn');
 const avatarBtn = document.getElementById('avatarBtn');
@@ -86,20 +92,21 @@ const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
 const resetAvatarBtn = document.getElementById('resetAvatarBtn');
 const toastContainer = document.getElementById('toastContainer');
 
+// Элементы загрузки
 const loadingStatus = document.getElementById('loadingStatus');
 const loadingBar = document.getElementById('loadingBar');
 
-// ==================== ЛОГГЕР ====================
-function log(message, level = 'INFO') {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [${level}] ${message}`);
-}
+// Бургер
+const burgerBtn = document.getElementById('burgerBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 
 // ==================== ВСПОМОГАТЕЛЬНЫЕ ====================
 function getBotAvatarHTML() {
     const cdnUrl = 'avatark.png';
     const containerId = 'bot-avatar-' + Math.random().toString(36).substring(2);
     const html = `<div id="${containerId}" style="width:100%; height:100%; border-radius:50%; background:#3a3a3a; display:flex; align-items:center; justify-content:center;"></div>`;
+    
     setTimeout(() => {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -125,11 +132,18 @@ function getUserAvatarHTML() {
     return '<i class="fas fa-user"></i>';
 }
 
+// ==================== ЛОГГЕР ====================
+function log(message, level = 'INFO') {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [${level}] ${message}`);
+}
+
 // ==================== ЗАГРУЗОЧНЫЙ ЭКРАН ====================
 async function showLoadingScreen() {
     log('🎬 Запуск загрузочного экрана');
     welcomeScreen.style.display = 'flex';
     welcomeScreen.classList.remove('fade-out');
+    
     let statusIndex = 0;
     const statusInterval = setInterval(() => {
         statusIndex = (statusIndex + 1) % loadingStatuses.length;
@@ -141,12 +155,14 @@ async function showLoadingScreen() {
             }, 200);
         }
     }, 1500);
+    
     let progress = 0;
     const progressInterval = setInterval(() => {
         progress += 1;
         if (loadingBar) loadingBar.style.width = progress + '%';
         if (progress >= 100) clearInterval(progressInterval);
     }, 70);
+    
     await new Promise(resolve => setTimeout(resolve, 7000));
     clearInterval(statusInterval);
     clearInterval(progressInterval);
@@ -154,10 +170,10 @@ async function showLoadingScreen() {
     await new Promise(resolve => setTimeout(resolve, 800));
 }
 
-// ==================== ПОЛУЧЕНИЕ КЛЮЧА С СЕРВЕРА ====================
+// ==================== ПОЛУЧЕНИЕ КЛЮЧА С ТВОЕГО СЕРВЕРА ====================
 async function fetchServerKey() {
     try {
-        const response = await fetch('/api/get-key');
+        const response = await fetch('/api/get-key'); // относительный путь
         if (!response.ok) {
             log(`Ошибка сервера: ${response.status}`, 'ERROR');
             return null;
@@ -182,9 +198,12 @@ async function checkKeyBalance(apiKey) {
             return false;
         }
         const data = await response.json();
+        userKeyInfo = data;
         if (data.limit !== undefined && data.usage !== undefined) {
             const remaining = data.limit - data.usage;
-            if (remaining <= 0) return false;
+            if (remaining <= 0) {
+                return false;
+            }
         }
         return true;
     } catch (error) {
@@ -196,19 +215,25 @@ async function checkKeyBalance(apiKey) {
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 (async function init() {
     log('🟢 Инициализация...');
+    
+    // Загрузка чатов из localStorage
     try {
         const stored = localStorage.getItem('diamondChats');
         if (stored) {
             chats = JSON.parse(stored);
+            // Убедимся, что у каждого чата есть id и messages
             chats = chats.filter(chat => chat && chat.id && Array.isArray(chat.messages));
             log(`Загружено ${chats.length} чатов`);
         } else {
             chats = [];
+            log('Нет сохранённых чатов');
         }
     } catch (e) {
         log(`Ошибка загрузки чатов: ${e.message}`, 'ERROR');
         chats = [];
     }
+
+    // Загрузка аватара пользователя
     try {
         const saved = localStorage.getItem('userAvatar');
         userAvatar = saved ? JSON.parse(saved) : { type: 'icon', value: 'fa-user' };
@@ -217,9 +242,12 @@ async function checkKeyBalance(apiKey) {
     await showLoadingScreen();
     welcomeScreen.style.display = 'none';
 
+    // Получаем ключ с твоего сервера
     const serverKey = await fetchServerKey();
     if (!serverKey) {
         log('❌ Не удалось получить ключ с сервера');
+        document.querySelector('.error-content h1').textContent = 'Сервер недоступен';
+        document.querySelector('.error-content p').textContent = 'Не удалось получить ключ. Попробуйте позже.';
         errorScreen.style.display = 'flex';
         return;
     }
@@ -232,32 +260,64 @@ async function checkKeyBalance(apiKey) {
     }
 
     userApiKey = serverKey;
-
+    await loadAvailableModels();
+    startBalanceMonitoring();
+    
+    // Показываем основной интерфейс
     mainUI.style.display = 'flex';
     setTimeout(() => mainUI.classList.add('visible'), 50);
-
+    
+    // Если есть чаты, устанавливаем текущий и рендерим их
     if (chats.length > 0) {
+        // Если currentChatId не задан или не существует в чатах, берём первый
         if (!currentChatId || !chats.find(c => c.id === currentChatId)) {
             currentChatId = chats[0].id;
         }
-        renderChat();
-        renderHistory();
+        renderChat();          // отображаем сообщения текущего чата
+        renderHistory();       // отображаем список чатов в сайдбаре (ВАЖНО!)
     } else {
-        createNewChat(true);
+        createNewChat(true);   // создаём приветственное сообщение
     }
 
+    // Обновляем состояние кнопки отправки
     updateSendButtonState();
+    
+    // Устанавливаем все обработчики
     setupEventListeners();
-
-    // Регистрация Service Worker для PWA
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').then(reg => {
-            log('Service Worker зарегистрирован');
-        }).catch(err => {
-            log(`Ошибка регистрации SW: ${err}`);
-        });
-    }
 })();
+
+// ==================== ЗАГРУЗКА МОДЕЛЕЙ ====================
+async function loadAvailableModels() {
+    if (!userApiKey) { availableModels = []; return; }
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { 'Authorization': `Bearer ${userApiKey}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch models');
+        const data = await response.json();
+        availableModels = data.data
+            .filter(model => model.id.includes(':free'))
+            .map(model => model.id);
+    } catch (error) {
+        log(`Ошибка загрузки моделей: ${error.message}`, 'ERROR');
+        availableModels = [];
+    }
+}
+
+function startBalanceMonitoring() {
+    if (balanceCheckInterval) clearInterval(balanceCheckInterval);
+    balanceCheckInterval = setInterval(async () => {
+        if (!userApiKey) return;
+        const isValid = await checkKeyBalance(userApiKey);
+        if (!isValid) {
+            clearInterval(balanceCheckInterval);
+            userApiKey = null;
+            userKeyInfo = null;
+            mainUI.style.display = 'none';
+            errorScreen.style.display = 'flex';
+        }
+    }, BALANCE_CHECK_INTERVAL);
+}
 
 // ==================== ЧАТЫ ====================
 function saveChats() {
@@ -339,8 +399,9 @@ function formatTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ==================== РЕНДЕР ЧАТА ====================
+// ==================== РЕНДЕР ЧАТА (СООБЩЕНИЯ) ====================
 function renderChat() {
+    // Убедимся, что currentChatId корректен
     if (!currentChatId && chats.length > 0) {
         currentChatId = chats[0].id;
     }
@@ -354,6 +415,12 @@ function renderChat() {
         }
         return;
     }
+    
+    if (!messagesContainer) {
+        log('messagesContainer не найден', 'ERROR');
+        return;
+    }
+    
     messagesContainer.innerHTML = '';
     let lastDate = null;
     chat.messages.forEach((msg, index) => {
@@ -470,6 +537,11 @@ function createTypingIndicator() {
     contentDiv.appendChild(dotsSpan);
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'cancel-generation';
+    cancelBtn.style.background = 'transparent';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.color = '#aaa';
+    cancelBtn.style.cursor = 'pointer';
+    cancelBtn.style.marginLeft = 'auto';
     cancelBtn.title = 'Отменить генерацию';
     cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
     const wrapper = document.createElement('div');
@@ -641,7 +713,7 @@ function updateSendButtonState() {
     }
 }
 
-// ==================== ИСТОРИЯ ====================
+// ==================== ИСТОРИЯ (СПИСОК ЧАТОВ) ====================
 function renderHistory() {
     if (!historyList) return;
     const searchTerm = historySearch ? historySearch.value.toLowerCase() : '';
@@ -657,7 +729,7 @@ function renderHistory() {
         return `
             <div class="history-item ${isActive}" data-id="${chat.id}">
                 <button class="pin-chat ${chat.pinned ? 'pinned' : ''}" data-id="${chat.id}" title="${chat.pinned ? 'Открепить' : 'Закрепить'}"><i class="fas fa-thumbtack"></i></button>
-                <span class="chat-title">${escapeHtml(chat.title)}</span>
+                <span class="chat-title">${chat.title}</span>
                 <button class="delete-chat" data-id="${chat.id}" title="Удалить чат"><i class="fas fa-times"></i></button>
             </div>
         `;
@@ -675,43 +747,25 @@ function renderHistory() {
         btn.addEventListener('click', (e) => { e.stopPropagation(); deleteChat(btn.dataset.id); });
     });
 }
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
-}
 
 if (historySearch) historySearch.addEventListener('input', renderHistory);
 if (newChatBtn) newChatBtn.addEventListener('click', () => createNewChat());
 
 // ==================== БУРГЕР ====================
-if (burgerBtn && sidebar && sidebarOverlay) {
-    const openSidebar = () => {
+if (burgerBtn) {
+    burgerBtn.addEventListener('click', () => {
         sidebar.classList.add('open');
         sidebarOverlay.classList.add('active');
-    };
-    const closeSidebar = () => {
+    });
+}
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', () => {
         sidebar.classList.remove('open');
         sidebarOverlay.classList.remove('active');
-    };
-    burgerBtn.addEventListener('click', openSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-    // Закрываем по свайпу влево
-    let touchStartX = 0;
-    sidebar.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-    });
-    sidebar.addEventListener('touchmove', (e) => {
-        const deltaX = e.touches[0].clientX - touchStartX;
-        if (deltaX < -50) closeSidebar();
     });
 }
 
-// ==================== АВАТАР ====================
+// ==================== АВАТАР ПОЛЬЗОВАТЕЛЯ ====================
 if (avatarBtn) {
     avatarBtn.addEventListener('click', () => {
         avatarModal.style.display = 'flex';
@@ -773,8 +827,8 @@ function showToast(title, message, type = 'info', duration = 3000) {
     toast.innerHTML = `
         <i class="fas ${icon}"></i>
         <div class="toast-content">
-            <div class="toast-title">${escapeHtml(title)}</div>
-            <div class="toast-message">${escapeHtml(message)}</div>
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
         </div>
         <button class="toast-close"><i class="fas fa-times"></i></button>
     `;
@@ -783,11 +837,11 @@ function showToast(title, message, type = 'info', duration = 3000) {
     setTimeout(() => toast.remove(), duration);
 }
 
-// ==================== КНОПКИ СОЦСЕТЕЙ ====================
+// ==================== КНОПКИ ====================
 if (discordBtn) discordBtn.addEventListener('click', () => window.open('https://discord.gg/diamondshop', '_blank'));
 if (telegramBtn) telegramBtn.addEventListener('click', () => window.open('https://t.me/+XbHQYFgGLXpkOTEy', '_blank'));
 
-// ==================== ПОЛЕ ВВОДА ====================
+// ==================== ОБРАБОТЧИКИ ПОЛЯ ВВОДА ====================
 if (userInput) {
     userInput.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -801,15 +855,17 @@ if (userInput) {
         }
     });
 }
-if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
+if (sendBtn) {
+    sendBtn.addEventListener('click', sendMessage);
+}
+
+// Закрытие модалки по клику вне
 window.addEventListener('click', (e) => {
     if (e.target === avatarModal) avatarModal.style.display = 'none';
 });
 
-// При фокусе на поле ввода скроллим к последнему сообщению (для клавиатуры)
-userInput.addEventListener('focus', () => {
-    setTimeout(scrollToBottom, 300);
-});
-
-function setupEventListeners() {}
+// ==================== ВСПОМОГАТЕЛЬНЫЙ ФУНКЦИОНАЛ ====================
+function setupEventListeners() {
+    // Все обработчики уже добавлены выше
+}
