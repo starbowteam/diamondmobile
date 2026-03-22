@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="DIAMOND AI">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon.png">
   <meta name="theme-color" content="#1e1e1e">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -33,7 +33,7 @@
       </div>
     </div>
 
-    <!-- Экран ошибки (если ключ не получен) -->
+    <!-- Экран ошибки -->
     <div class="error-screen" id="errorScreen" style="display: none;">
       <div class="error-content">
         <i class="fas fa-exclamation-triangle"></i>
@@ -120,5 +120,13 @@
   </div>
 
   <script src="script.js"></script>
+  <script>
+    // Регистрация Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg))
+        .catch(err => console.error('SW registration failed:', err));
+    }
+  </script>
 </body>
 </html>
