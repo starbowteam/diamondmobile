@@ -23,7 +23,7 @@ body {
   background: #1e1e1e;
 }
 
-/* ЗАГРУЗОЧНЫЙ ЭКРАН */
+/* ЗАГРУЗОЧНЫЙ ЭКРАН С АНИМАЦИЕЙ */
 .welcome-screen {
   position: fixed;
   top: 0;
@@ -35,7 +35,7 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.8s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
 .welcome-screen.fade-out {
   opacity: 0;
@@ -43,24 +43,40 @@ body {
 }
 .welcome-content {
   text-align: center;
+  animation: scaleIn 0.6s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 .welcome-logo {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   margin-bottom: 20px;
   object-fit: cover;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
 }
 .welcome-title {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 800;
   letter-spacing: 2px;
   margin-bottom: 20px;
+  background: linear-gradient(135deg, #fff, #aaa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .loading-status {
   font-size: 14px;
   color: #aaa;
   margin-bottom: 10px;
+  transition: opacity 0.2s;
 }
 .loading-bar-container {
   width: 200px;
@@ -74,7 +90,7 @@ body {
   width: 0%;
   height: 100%;
   background: #fff;
-  transition: width 0.3s;
+  transition: width 0.3s linear;
 }
 
 /* ЭКРАН ОШИБКИ */
@@ -90,6 +106,7 @@ body {
   justify-content: center;
   text-align: center;
   padding: 20px;
+  z-index: 900;
 }
 .error-content i {
   font-size: 48px;
@@ -117,7 +134,7 @@ body {
   opacity: 1;
 }
 
-/* ШАПКА */
+/* ШАПКА – адаптация под Dynamic Island (safe-area-inset-top) */
 .mobile-header {
   display: flex;
   align-items: center;
@@ -126,6 +143,8 @@ body {
   background: #2d2d2d;
   border-bottom: 1px solid #3a3a3a;
   flex-shrink: 0;
+  /* Для iPhone с вырезом */
+  padding-top: max(12px, env(safe-area-inset-top));
 }
 .header-left, .header-right {
   width: 40px;
@@ -136,10 +155,11 @@ body {
   color: #fff;
   font-size: 24px;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, transform 0.1s;
 }
 .burger-btn:active {
   opacity: 0.6;
+  transform: scale(0.96);
 }
 .header-center {
   flex: 1;
@@ -212,10 +232,11 @@ body {
   gap: 8px;
   margin-bottom: 16px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
 }
 .new-chat-btn:active {
   background: #4a4a4a;
+  transform: scale(0.98);
 }
 .search-box {
   display: flex;
@@ -305,13 +326,14 @@ body {
   background: #4a4a4a;
 }
 
-/* ОБЛАСТЬ ЧАТА */
+/* ОБЛАСТЬ ЧАТА – flex-растягивание */
 .chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: #1e1e1e;
+  position: relative;
 }
 .messages-container {
   flex: 1;
@@ -321,6 +343,7 @@ body {
   flex-direction: column;
   gap: 12px;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 .message {
   display: flex;
@@ -331,7 +354,7 @@ body {
 @keyframes messageSlideIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -448,10 +471,13 @@ body {
   background: #4a4a4a;
 }
 
-/* ПОЛЕ ВВОДА – ВЫТЯНУТЫЙ ПОЛУКРУГ */
+/* ПОЛЕ ВВОДА – закреплено внизу */
 .input-area {
   padding: 12px 16px 20px;
   background: #1e1e1e;
+  flex-shrink: 0;
+  /* безопасная зона снизу */
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
 }
 .input-wrapper {
   display: flex;
@@ -479,15 +505,17 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
 }
 .send-btn:active {
   background: #3a3a3a;
   color: #fff;
+  transform: scale(0.95);
 }
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 textarea {
   flex: 1;
@@ -608,6 +636,7 @@ textarea::placeholder {
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .toast {
   background: #2d2d2d;
