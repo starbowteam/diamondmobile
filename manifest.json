@@ -1,6 +1,6 @@
 {
-  "name": "DIAMOND AI",
-  "short_name": "Diamond AI",
+  "name": "DIAMOND AI Desktop",
+  "short_name": "Diamond",
   "description": "Умный помощник для любых задач",
   "start_url": "/",
   "display": "standalone",
