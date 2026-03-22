@@ -23,7 +23,7 @@ body {
   background: #1e1e1e;
 }
 
-/* ЗАГРУЗОЧНЫЙ ЭКРАН С АНИМАЦИЕЙ */
+/* ЗАГРУЗОЧНЫЙ ЭКРАН */
 .welcome-screen {
   position: fixed;
   top: 0;
@@ -134,7 +134,7 @@ body {
   opacity: 1;
 }
 
-/* ШАПКА – адаптация под Dynamic Island (safe-area-inset-top) */
+/* ШАПКА */
 .mobile-header {
   display: flex;
   align-items: center;
@@ -143,7 +143,6 @@ body {
   background: #2d2d2d;
   border-bottom: 1px solid #3a3a3a;
   flex-shrink: 0;
-  /* Для iPhone с вырезом */
   padding-top: max(12px, env(safe-area-inset-top));
 }
 .header-left, .header-right {
@@ -181,7 +180,7 @@ body {
   font-size: 18px;
 }
 
-/* САЙДБАР */
+/* САЙДБАР – оптимизирован под мобильные */
 .sidebar-overlay {
   position: fixed;
   top: 0;
@@ -209,23 +208,24 @@ body {
   transition: left 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 20px 16px;
   box-shadow: 2px 0 10px rgba(0,0,0,0.3);
 }
 .sidebar.open {
   left: 0;
 }
 .sidebar-header {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 .new-chat-btn {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   background: #3a3a3a;
   border: none;
   border-radius: 30px;
   color: white;
   font-weight: 600;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -243,11 +243,12 @@ body {
   align-items: center;
   background: #3a3a3a;
   border-radius: 30px;
-  padding: 8px 12px;
+  padding: 10px 14px;
 }
 .search-box i {
   color: #aaa;
-  margin-right: 8px;
+  margin-right: 10px;
+  font-size: 14px;
 }
 .search-box input {
   background: transparent;
@@ -255,19 +256,20 @@ body {
   color: white;
   width: 100%;
   outline: none;
-  font-size: 14px;
+  font-size: 15px;
 }
 .history-list {
   flex: 1;
   overflow-y: auto;
+  margin: 8px 0;
 }
 .history-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 6px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  margin-bottom: 8px;
   background: #3a3a3a;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
@@ -284,17 +286,18 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: 15px;
 }
 .pin-chat, .delete-chat {
   background: none;
   border: none;
   color: #aaa;
   cursor: pointer;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   transition: background 0.2s;
+  font-size: 14px;
 }
 .pin-chat:active, .delete-chat:active {
   background: #4a4a4a;
@@ -306,18 +309,18 @@ body {
 .sidebar-footer {
   display: flex;
   justify-content: space-around;
-  margin-top: 16px;
+  margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid #3a3a3a;
 }
 .sidebar-footer-btn {
   background: #3a3a3a;
   border: none;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   color: white;
-  font-size: 20px;
+  font-size: 22px;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
 }
@@ -326,7 +329,7 @@ body {
   background: #4a4a4a;
 }
 
-/* ОБЛАСТЬ ЧАТА – flex-растягивание */
+/* ОБЛАСТЬ ЧАТА */
 .chat-area {
   flex: 1;
   display: flex;
@@ -471,13 +474,12 @@ body {
   background: #4a4a4a;
 }
 
-/* ПОЛЕ ВВОДА – закреплено внизу */
+/* ПОЛЕ ВВОДА – опущено ниже, увеличены отступы */
 .input-area {
-  padding: 12px 16px 20px;
+  padding: 12px 16px 30px;
   background: #1e1e1e;
   flex-shrink: 0;
-  /* безопасная зона снизу */
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding-bottom: max(30px, calc(env(safe-area-inset-bottom) + 10px));
 }
 .input-wrapper {
   display: flex;
@@ -691,5 +693,8 @@ textarea::placeholder {
     width: 36px;
     height: 36px;
     font-size: 18px;
+  }
+  .sidebar {
+    width: 260px;
   }
 }
