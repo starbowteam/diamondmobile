@@ -248,6 +248,15 @@ async function checkKeyBalance(apiKey) {
 
     updateSendButtonState();
     setupEventListeners();
+
+    // Регистрация Service Worker для PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+            log('Service Worker зарегистрирован');
+        }).catch(err => {
+            log(`Ошибка регистрации SW: ${err}`);
+        });
+    }
 })();
 
 // ==================== ЧАТЫ ====================
@@ -539,7 +548,6 @@ async function sendMessage() {
     ];
 
     let modelsToTry = PRIORITY_MODELS;
-    // если есть успешная модель, ставим её первой
     if (lastSuccessfulModel && PRIORITY_MODELS.includes(lastSuccessfulModel)) {
         modelsToTry = [lastSuccessfulModel, ...PRIORITY_MODELS.filter(m => m !== lastSuccessfulModel)];
     }
@@ -797,6 +805,11 @@ if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
 window.addEventListener('click', (e) => {
     if (e.target === avatarModal) avatarModal.style.display = 'none';
+});
+
+// При фокусе на поле ввода скроллим к последнему сообщению (для клавиатуры)
+userInput.addEventListener('focus', () => {
+    setTimeout(scrollToBottom, 300);
 });
 
 function setupEventListeners() {}
