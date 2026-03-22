@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
-  <title>DIAMOND AI — Технические работы</title>
+  <title>DIAMOND AI — Обновление</title>
   <meta name="theme-color" content="#1e1e1e">
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -30,30 +31,50 @@
       text-align: center;
       max-width: 400px;
       width: 100%;
-      animation: fadeIn 0.6s ease;
+      animation: fadeInUp 0.6s cubic-bezier(0.2, 0.9, 0.4, 1.1);
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
-    .icon {
-      font-size: 80px;
-      margin-bottom: 20px;
-      display: inline-block;
-      animation: pulse 1.5s infinite;
+    .logo {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 20px;
+      background: #2d2d2d;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 1.8s infinite;
+    }
+
+    .logo svg {
+      width: 60px;
+      height: 60px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 1.5;
     }
 
     @keyframes pulse {
-      0% { transform: scale(1); opacity: 0.7; }
-      50% { transform: scale(1.05); opacity: 1; }
-      100% { transform: scale(1); opacity: 0.7; }
+      0% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 0 0 rgba(255,255,255,0.2); }
+      50% { transform: scale(1.02); opacity: 1; box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+      100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 0 0 rgba(255,255,255,0); }
     }
 
     h1 {
-      font-size: 28px;
-      font-weight: 700;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 1px;
       margin-bottom: 12px;
       background: linear-gradient(135deg, #fff, #aaa);
       -webkit-background-clip: text;
@@ -61,11 +82,59 @@
       color: transparent;
     }
 
+    .badge {
+      display: inline-block;
+      background: rgba(46, 204, 113, 0.2);
+      border: 1px solid #2ecc71;
+      border-radius: 40px;
+      padding: 6px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #2ecc71;
+      margin-bottom: 20px;
+      backdrop-filter: blur(4px);
+    }
+
     p {
       font-size: 16px;
-      line-height: 1.4;
+      line-height: 1.5;
       color: #ccc;
       margin-bottom: 24px;
+    }
+
+    .upgrade-list {
+      text-align: left;
+      background: #2d2d2d;
+      border-radius: 24px;
+      padding: 20px;
+      margin: 24px 0;
+      border: 1px solid #3a3a3a;
+    }
+
+    .upgrade-list h3 {
+      font-size: 18px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .upgrade-list ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .upgrade-list li {
+      margin-bottom: 10px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .upgrade-list li::before {
+      content: "✨";
+      font-size: 14px;
     }
 
     .telegram-link {
@@ -73,14 +142,15 @@
       align-items: center;
       gap: 10px;
       background: #2d2d2d;
-      padding: 12px 24px;
-      border-radius: 40px;
+      padding: 14px 28px;
+      border-radius: 50px;
       color: #fff;
       text-decoration: none;
-      font-weight: 500;
+      font-weight: 600;
       font-size: 18px;
-      transition: background 0.2s, transform 0.1s;
+      transition: all 0.2s;
       border: 1px solid #3a3a3a;
+      margin-top: 8px;
     }
 
     .telegram-link:active {
@@ -93,43 +163,74 @@
     }
 
     .footer {
-      margin-top: 40px;
+      margin-top: 32px;
       font-size: 12px;
       color: #666;
     }
 
-    /* анимация для иконки (через обычный символ, т.к. не подключаем FontAwesome) */
-    .emoji-icon {
-      font-size: 80px;
+    /* простая иконка через символы */
+    .icon-emoji {
+      font-size: 48px;
       line-height: 1;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="icon">
-      <span class="emoji-icon">🔧</span>
+    <div class="logo">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="45" stroke="white" fill="none"/>
+        <path d="M30,50 L70,50 M50,30 L50,70" stroke="white" stroke-width="2"/>
+        <circle cx="50" cy="50" r="8" fill="white"/>
+      </svg>
     </div>
-    <h1>Технические работы</h1>
-    <p>Мы временно недоступны.<br>Приносим извинения за неудобства.</p>
+    <h1>DIAMOND AI</h1>
+    <div class="badge">Выход из беты → Релиз</div>
+    <p>Мы закрыли доступ на время масштабного обновления.<br>Скоро вы встретите совершенно новый Diamond AI.</p>
+
+    <div class="upgrade-list">
+      <h3>🔮 Что улучшим:</h3>
+      <ul>
+        <li>Мгновенные ответы (оптимизация до 30% быстрее)</li>
+        <li>Полностью переработанный интерфейс </li>
+        <li>Автономный голосовой режим (без дополнительных API)</li>
+        <li>История чатов с поиском и закреплением</li>
+        <li>Адаптивная тёмная тема и плавные анимации</li>
+        <li>Приятный дизайн/li>
+      </ul>
+    </div>
+
     <a href="https://t.me/vshpps" class="telegram-link" target="_blank">
       <span>📱</span> Написать в Telegram
     </a>
     <div class="footer">
-      Diamond AI · Скоро вернёмся
+      Diamond AI · Скоро станет ещё лучше
     </div>
   </div>
+
+  <!-- Жёсткая блокировка ПК -->
+  <script>
+    function isMobile() {
+      // Проверка по User-Agent
+      if (/Mobi|Android|iPhone|iPad|iPod|Windows Phone|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent)) return true;
+      // Проверка по ширине экрана (обычно у мобильных <= 1024px)
+      if (window.innerWidth <= 1024) return true;
+      return false;
+    }
+
+    if (!isMobile()) {
+      // Если открыто на ПК, полностью заменяем содержимое
+      document.body.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#1e1e1e; color:white; text-align:center; font-family:sans-serif;">
+          <div>
+            <h1>📱 Доступ только с мобильных устройств</h1>
+            <p>Откройте этот сайт на смартфоне</p>
+            <p style="font-size:12px; margin-top:20px;">Diamond AI оптимизирован для телефонов</p>
+          </div>
+        </div>
+      `;
+      document.body.style.margin = '0';
+    }
+  </script>
 </body>
 </html>
-
-<script>
-  function isMobile() {
-    if (/Mobi|Android|iPhone|iPad|iPod|Windows Phone|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent)) return true;
-    if (window.innerWidth <= 1024) return true;
-    return false;
-  }
-  if (!isMobile()) {
-    document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#1e1e1e; color:white; text-align:center;"><div><h1>Доступ только с мобильных устройств</h1><p>Откройте этот сайт на смартфоне</p></div></div>';
-    document.body.style.margin = '0';
-  }
-</script>
