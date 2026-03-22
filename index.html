@@ -19,8 +19,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Блокировка для ПК -->
+  <div id="pc-blocker" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:#1e1e1e; z-index:10000; align-items:center; justify-content:center; text-align:center; flex-direction:column; gap:20px;">
+    <i class="fas fa-mobile-alt" style="font-size: 80px; color:#9b9b9b;"></i>
+    <h2>Доступ только с мобильных устройств</h2>
+    <p>Откройте этот сайт на смартфоне</p>
+  </div>
+
   <div class="app" id="app">
-    <!-- Загрузочный экран -->
+    <!-- Загрузочный экран с анимацией -->
     <div class="welcome-screen" id="welcomeScreen">
       <div class="welcome-content">
         <img src="logotip.png" class="welcome-logo" alt="logo"
@@ -33,7 +40,7 @@
       </div>
     </div>
 
-    <!-- Экран ошибки -->
+    <!-- Экран ошибки (если ключ не получен) -->
     <div class="error-screen" id="errorScreen" style="display: none;">
       <div class="error-content">
         <i class="fas fa-exclamation-triangle"></i>
@@ -121,11 +128,10 @@
 
   <script src="script.js"></script>
   <script>
-    // Регистрация Service Worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('SW registered:', reg))
-        .catch(err => console.error('SW registration failed:', err));
+    // Блокировка ПК
+    if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      document.getElementById('pc-blocker').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
     }
   </script>
 </body>
