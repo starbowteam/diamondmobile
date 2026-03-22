@@ -702,3 +702,32 @@ textarea::placeholder {
     width: 260px;
   }
 }
+
+/* ФИКСЫ ДЛЯ IPHONE 14 PRO (DYNAMIC ISLAND) */
+@supports (padding-top: env(safe-area-inset-top)) {
+  /* Шапка – отступ сверху */
+  .mobile-header {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  /* Сайдбар – отступ сверху, чтобы не уходил под Dynamic Island */
+  .sidebar {
+    padding-top: max(20px, env(safe-area-inset-top));
+    top: 0;
+  }
+
+  /* Поле ввода – отступ снизу, чтобы не упиралось в домашнюю полосу */
+  .input-area {
+    padding-bottom: max(30px, calc(env(safe-area-inset-bottom) + 15px));
+  }
+
+  /* Тосты – тоже отступ снизу */
+  .toast-container {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Если сайдбар всё ещё перекрывается – добавь дополнительный отступ */
+.sidebar {
+  padding-top: 60px !important; /* принудительный отступ, подгони под свой экран */
+}
