@@ -121,3 +121,15 @@
   </div>
 </body>
 </html>
+
+<script>
+  function isMobile() {
+    if (/Mobi|Android|iPhone|iPad|iPod|Windows Phone|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent)) return true;
+    if (window.innerWidth <= 1024) return true;
+    return false;
+  }
+  if (!isMobile()) {
+    document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#1e1e1e; color:white; text-align:center;"><div><h1>Доступ только с мобильных устройств</h1><p>Откройте этот сайт на смартфоне</p></div></div>';
+    document.body.style.margin = '0';
+  }
+</script>
