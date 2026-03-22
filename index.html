@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="DIAMOND AI">
+  <meta name="apple-mobile-web-app-title" content="DIAMOND">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="theme-color" content="#1e1e1e">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -19,7 +19,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Десктопный блокер (для мобильной версии) -->
   <div class="desktop-blocker" id="desktopBlocker">
     <div class="blocker-content">
       <i class="fas fa-mobile-alt"></i>
@@ -28,14 +27,13 @@
     </div>
   </div>
 
-  <!-- Основное приложение -->
   <div class="app" id="app">
     <!-- Загрузочный экран -->
     <div class="welcome-screen" id="welcomeScreen">
       <div class="welcome-content">
         <img src="logotip.png" class="welcome-logo" alt="logo"
              onerror="this.src='https://via.placeholder.com/100x100/1e1e1e/ffffff?text=AI'; this.style.borderRadius='50%';">
-        <div class="welcome-title">DIAMOND AI</div>
+        <div class="welcome-title">DIAMOND</div>
         <div class="loading-status" id="loadingStatus">Загрузка</div>
         <div class="loading-bar-container">
           <div class="loading-bar" id="loadingBar"></div>
@@ -55,24 +53,18 @@
 
     <!-- Основной интерфейс чата -->
     <div class="main-ui" id="mainUI" style="display: none;">
-      <!-- Шапка с тремя колонками для центрирования -->
       <header class="mobile-header compact">
-        <div class="header-left">
-          <button class="burger-btn" id="burgerBtn">
-            <i class="fas fa-bars"></i>
-          </button>
+        <button class="burger-btn" id="burgerBtn">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="header-logo">
+          <img src="avatark.png" alt="avatar"
+               onerror="this.src='https://via.placeholder.com/28x28/1e1e1e/ffffff?text=AI'; this.style.borderRadius='50%';">
+          <span>DIAMOND</span>
         </div>
-        <div class="header-center">
-          <div class="header-logo">
-            <img src="avatark.png" alt="avatar"
-                 onerror="this.src='https://via.placeholder.com/28x28/1e1e1e/ffffff?text=AI'; this.style.borderRadius='50%';">
-            <span>DIAMOND AI</span>
-          </div>
-        </div>
-        <div class="header-right"></div>
+        <!-- Блок с тремя точками УДАЛЁН -->
       </header>
 
-      <!-- Оверлей и сайдбар -->
       <div class="sidebar-overlay" id="sidebarOverlay"></div>
       <aside class="sidebar compact" id="sidebar">
         <div class="sidebar-header">
@@ -92,7 +84,6 @@
         </div>
       </aside>
 
-      <!-- Область чата -->
       <main class="chat-area">
         <div class="messages-container" id="messagesContainer"></div>
         <div class="input-area">
@@ -128,7 +119,6 @@
       </div>
     </div>
 
-    <!-- Контейнер тостов -->
     <div id="toastContainer" class="toast-container"></div>
   </div>
 
